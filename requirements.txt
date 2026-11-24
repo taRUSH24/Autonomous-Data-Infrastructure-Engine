@@ -1,0 +1,34 @@
+# --- substrate ---
+dagster
+dagster-webserver
+dagster-dbt
+dbt-core
+dbt-duckdb
+duckdb
+
+# --- detection ---
+scikit-learn
+pandas
+pyarrow
+numpy
+
+# --- lineage / rca ---
+# (column-level lineage via sqlglot was scoped out of this vertical slice --
+# see README; lineage here is table/model-level, straight from the dbt manifest)
+networkx
+
+# --- agent ---
+langgraph
+langgraph-checkpoint-sqlite
+langchain-anthropic
+anthropic
+
+# --- control / misc ---
+pydantic
+python-dotenv
+
+# --- elementary (dbt-native monitoring) ---
+elementary-data
+
+# --- test ---
+pytest

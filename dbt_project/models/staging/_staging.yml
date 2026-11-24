@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: stg_trips
+    description: Cleaned, cast trip records. One row per trip.
+    columns:
+      - name: vendor_id
+        tests: [not_null]
+      - name: pickup_at
+        tests: [not_null]
+      - name: pickup_location_id
+        tests: [not_null]
+      - name: fare_amount
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -50
+              max_value: 1000
+              config:
+                severity: warn
+  - name: stg_zones
+    description: NYC TLC taxi zone lookup (261 zones), loaded as a dbt seed.
+    columns:
+      - name: location_id
+        tests: [not_null, unique]

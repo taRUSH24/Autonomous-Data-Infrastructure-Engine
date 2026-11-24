@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: trips_enriched
+    description: Trip-grain fact, enriched with pickup zone/borough via a join to the TLC zone lookup.
+    columns:
+      - name: pickup_location_id
+        tests: [not_null]
+
+  - name: fct_trips_daily
+    description: >
+      Day-grain aggregate. This is the asset plane-1 detectors (dbt tests,
+      Elementary anomaly monitors, the Isolation Forest check) all watch.
+    columns:
+      - name: pickup_date
+        tests: [not_null, unique]
+      - name: trip_count
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              config:
+                severity: error
+      - name: unmatched_zone_count
+        tests:
+          - dbt_utils.accepted_range:
+              max_value: 50
+              config:
+                severity: warn
