@@ -1,0 +1,134 @@
+{
+  "generated_at": "2026-11-25T00:16:36",
+  "train_days": [
+    "2023-02-01",
+    "2023-02-02",
+    "2023-02-03",
+    "2023-02-04",
+    "2023-02-05",
+    "2023-02-06",
+    "2023-02-07",
+    "2023-02-08",
+    "2023-02-09",
+    "2023-02-10",
+    "2023-02-11",
+    "2023-02-12",
+    "2023-02-13",
+    "2023-02-14",
+    "2023-02-15",
+    "2023-02-16",
+    "2023-02-17",
+    "2023-02-18",
+    "2023-02-19",
+    "2023-02-20",
+    "2023-02-21",
+    "2023-02-22",
+    "2023-02-23",
+    "2023-02-24",
+    "2023-02-25",
+    "2023-02-26",
+    "2023-02-27",
+    "2023-02-28"
+  ],
+  "test_days": [
+    "2023-03-01",
+    "2023-03-02",
+    "2023-03-03",
+    "2023-03-04",
+    "2023-03-05",
+    "2023-03-06",
+    "2023-03-07",
+    "2023-03-08",
+    "2023-03-09",
+    "2023-03-10",
+    "2023-03-11",
+    "2023-03-12",
+    "2023-03-13",
+    "2023-03-14"
+  ],
+  "n_train_arrangements": 21,
+  "n_test_arrangements": 17,
+  "phase1_anomaly_detection": {
+    "isolation_forest": {
+      "precision": 0.20689655172413793,
+      "recall": 1.0,
+      "f1": 0.34285714285714286,
+      "false_positive_rate": 0.2072072072072072,
+      "n_test_rows": 234,
+      "n_positive": 12,
+      "mean_latency_seconds_per_row": 0.009816931863116402
+    },
+    "random_forest": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": 0.0,
+      "n_test_rows": 234,
+      "n_positive": 12,
+      "mean_latency_seconds_per_row": 0.016580779328305498
+    },
+    "xgboost": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": 0.0,
+      "n_test_rows": 234,
+      "n_positive": 12,
+      "mean_latency_seconds_per_row": 0.002561568194984371
+    },
+    "statistical_zscore": {
+      "precision": 0.42857142857142855,
+      "recall": 1.0,
+      "f1": 0.6,
+      "false_positive_rate": 0.07207207207207207,
+      "n_test_rows": 234,
+      "n_positive": 12,
+      "mean_latency_seconds_per_row": 0.0008183962259537134
+    }
+  },
+  "phase2_root_cause_analysis": {
+    "n_fault_arrangements": 16,
+    "n_detection_misses": 1,
+    "lineage_constrained": {
+      "top1_accuracy": 0.7333333333333333,
+      "top3_accuracy": 1.0,
+      "n_cases": 15
+    },
+    "statistical_no_lineage": {
+      "top1_accuracy": 0.7333333333333333,
+      "top3_accuracy": 0.7333333333333333,
+      "n_cases": 15
+    },
+    "ml_no_lineage": {
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0,
+      "n_cases": 15
+    }
+  },
+  "phase4_repair": {
+    "n_cases": 16,
+    "detection_rate": 0.9375,
+    "repair_success_rate": 0.9375,
+    "repair_success_ci95": [
+      0.7167073163197013,
+      0.9888809426916687
+    ],
+    "mean_detect_seconds": 0.2454489767551422,
+    "mean_recovery_seconds": 29.545981454849244
+  },
+  "phase4_false_alarms": {
+    "n_clean_days_checked": 14,
+    "n_flagged_by_isolation_forest": 2,
+    "false_alarm_rate": 0.14285714285714285,
+    "n_auto_repairs_on_clean_data": 0
+  },
+  "phase4_transformation_defect": {
+    "ground_truth_asset": "stg_trips",
+    "ground_truth_mechanism": "transformation_defect",
+    "detected": true,
+    "n_signals": 2,
+    "rca_top1_hit": true,
+    "rca_top3_hit": true,
+    "agent_correctly_escalates_instead_of_auto_repairing": true
+  }
+}

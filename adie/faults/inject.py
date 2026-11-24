@@ -12,6 +12,8 @@ from dataclasses import dataclass
 
 import duckdb
 
+from adie.contracts import validate_day as _validate_day
+
 
 @dataclass
 class FaultSpec:
@@ -93,6 +95,7 @@ REGISTRY = {
 def apply(duckdb_path: str, fault_name: str, day: str = "2023-01-03", **kwargs) -> FaultSpec:
     if fault_name not in REGISTRY:
         raise ValueError(f"unknown fault '{fault_name}', choose one of {list(REGISTRY)}")
+    _validate_day(day)
     spec = REGISTRY[fault_name](day, **kwargs) if fault_name == "duplicate_records" else REGISTRY[fault_name](day)
 
     con = duckdb.connect(duckdb_path)

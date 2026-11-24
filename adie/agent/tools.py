@@ -8,14 +8,21 @@ freeform commands.
 """
 from __future__ import annotations
 
-from adie.contracts import Action, ActionKind
+from adie.contracts import Action, ActionKind, validate_day
 
 
 def reingest_partition(day: str, raw_json_path: str) -> Action:
     """Repairs missing_partition, schema_change, and join_error: all three
     corrupt or remove rows for one day in raw.trips, and in every case the
     original source file still has the correct data for that day -- so the
-    fix is to re-run ingestion for just that partition."""
+    fix is to re-run ingestion for just that partition.
+
+    `day` can originate from an LLM's structured-output response
+    (adie.agent.graph's propose_repair node) before this function builds
+    SQL that eventually runs against production via adie.agent.sandbox --
+    validate_day rejects anything that isn't a plain YYYY-MM-DD before it
+    reaches an f-string."""
+    validate_day(day)
     return Action(
         kind=ActionKind.SQL_PATCH,
         target_asset="trips",

@@ -12,7 +12,15 @@ models:
         tests: [not_null]
       - name: fare_amount
         tests:
-          - not_null
+          # severity: warn -- a day-partitioned fact table should not have
+          # one day's bad value (e.g. a nulled column from an upstream
+          # schema change) block dbt from building every OTHER day in the
+          # same run. Error-severity here would skip trips_enriched and
+          # fct_trips_daily entirely rather than surface the day as an
+          # anomaly for the detection/RCA/agent planes to actually see.
+          - not_null:
+              config:
+                severity: warn
           - dbt_utils.accepted_range:
               min_value: -50
               max_value: 1000

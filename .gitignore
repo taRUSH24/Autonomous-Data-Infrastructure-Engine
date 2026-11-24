@@ -19,4 +19,13 @@ data/warehouse/*.sqlite
 data/raw/*.json
 data/raw/*.parquet
 
+# research harness: raw fetched trip data is large and regenerable
+# (scripts/fetch_experiment_data.py); experiments/results/ is NOT excluded --
+# those small CSV/JSON/PNG files are the committed research deliverables,
+# except the runtime incident db and log the run itself produces.
+experiments/data/
+experiments/results/*.sqlite
+experiments/results/run.log
+
 .env
+dbt_project/package-lock.concurrent-update-lock

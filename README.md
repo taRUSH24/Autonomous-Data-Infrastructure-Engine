@@ -22,12 +22,19 @@ NYC Taxi (Socrata) -> raw.trips (DuckDB)
 |---|---|---|
 | Substrate | Dagster, dbt-core, dbt-duckdb, DuckDB | one asset to load the raw JSON feed |
 | Detection (rules) | dbt tests, `dbt-labs/dbt_utils`, `elementary-data/elementary` | schema/test YAML |
-| Detection (ML) | scikit-learn `IsolationForest` | the daily-metrics adapter + per-feature z-score decomposition |
+| Detection (ML) | scikit-learn `IsolationForest`, `RandomForestClassifier`, `xgboost.XGBClassifier` | the daily-metrics adapter, per-feature z-score decomposition, and the offline fit/predict research harness in `adie/eval/` |
 | Lineage | dbt's own manifest, `networkx` | the manifest -> graph loader + cone queries |
-| RCA | PyRCA's graph-proximity *idea* (not the library -- see `adie/rca/scorer.py` docstring) | the cone-constrained scorer + metric->mechanism table |
+| RCA | PyRCA's graph-proximity *idea* (not the library -- see `adie/rca/scorer.py` docstring); `RandomForestClassifier` for the no-lineage ML baseline | the cone-constrained scorer + metric->mechanism table; `adie/eval/rca_baselines.py`'s two comparison baselines |
 | Agent | LangGraph, `langchain-anthropic` (`claude-opus-5`) | the graph wiring, repair catalog, sandbox verifier |
 | Control | Python stdlib `sqlite3` | the incident/audit log |
 | Dashboard | Dagster's own UI (assets, checks, run history, job launchpad) | nothing -- no custom dashboard was needed |
+| Research harness | pandas, scikit-learn metrics, matplotlib | `adie/eval/`, `scripts/run_research_experiments.py`, `scripts/generate_figures.py` |
+
+**Research deliverables** (Phase 1-4 experiments, real NYC taxi data, real train/test date separation — not fabricated): see
+[`RESEARCH_REPORT.md`](RESEARCH_REPORT.md) (methodology, results, discussion, limitations),
+[`EVALUATION_REPORT.md`](EVALUATION_REPORT.md) (quick-reference tables + figures),
+[`ML_RESULTS.csv`](ML_RESULTS.csv) (raw per-row predictions),
+and `experiments/results/figures/*.png`. [`DEMO_GUIDE.md`](DEMO_GUIDE.md) has the exact commands to reproduce or present any of this.
 
 ## Install
 
@@ -93,17 +100,28 @@ first Dagster materialization.)
 
 ## Run it
 
-**Dagster UI** (assets, lineage graph, check results, run history -- this
-*is* the monitoring dashboard, nothing custom was built):
+**Dagster UI** (assets, check results, run history -- this *is* the
+monitoring dashboard, nothing custom was built):
 
 ```bash
 export DAGSTER_HOME="$PWD/.dagster_home"
 .venv/bin/dagster dev -m dagster_project.definitions
 ```
 
-Open http://localhost:3000, materialize the asset graph, and watch
-`isolation_forest_anomaly_check` / `calendar_completeness_check` /
-every dbt test run as Dagster asset checks next to `fct_trips_daily`.
+Open http://localhost:3000. Open any asset (e.g. `fct_trips_daily`) and use
+its **Materialize** button, then its **Checks** tab to watch
+`isolation_forest_anomaly_check` / `calendar_completeness_check` / every
+dbt test render as a real Dagster asset check, with Dagster's own
+metadata-driven plots.
+
+> **Known issue, not fixed by design** (Phase 6 of this project explicitly
+> deprioritized cosmetic dashboard work): the asset-graph *picture* --
+> Catalog's graph view, the per-asset Lineage tab, the Jobs graph page --
+> hangs on a loading spinner in some browser contexts. Confirmed via direct
+> GraphQL query that the backend data is correct; this is a frontend
+> rendering bug, not a data problem. Every list/detail page (an asset's
+> Overview/Checks/Events tabs, Runs) renders correctly and is the
+> recommended way to inspect the system through the UI.
 
 **Inject a fault, then investigate + repair it:**
 
@@ -178,6 +196,25 @@ claims to be LLM-driven when it wasn't.
 into a throwaway copy of the warehouse and asserts the RCA ranker actually
 finds the ground-truth asset, not just that it runs without error.
 
+## Research experiments
+
+The 36 pytest tests above check correctness. A separate, larger harness
+(`adie/eval/`) produced the numbers in [`RESEARCH_REPORT.md`](RESEARCH_REPORT.md)
+and [`EVALUATION_REPORT.md`](EVALUATION_REPORT.md): 39 independently-built
+real-data warehouses (28 held-out TRAIN days, 14 held-out TEST days, Feb vs.
+March 2023, strictly disjoint dates), comparing Isolation Forest / Random
+Forest / XGBoost / a statistical baseline on anomaly detection, and three
+root-cause-analysis methods, then running the full agent repair loop on
+every fault case. Reproduce with:
+
+```bash
+.venv/bin/python scripts/fetch_experiment_data.py        # ~1 min, one-time
+.venv/bin/python scripts/run_research_experiments.py     # ~15-17 min: 39 real dbt builds + 2 model fits + 16 agent repairs
+.venv/bin/python scripts/generate_figures.py
+```
+
+See [`DEMO_GUIDE.md`](DEMO_GUIDE.md) §8 for the full command block with environment variables.
+
 ## Docker
 
 ```bash
@@ -205,16 +242,28 @@ run. Verify on a machine with Docker before relying on it.
 
 ```
 adie/
-  contracts.py        Signal -> Hypothesis -> Action -> Verification envelope
-  lineage/graph.py     dbt manifest -> networkx graph, upstream/downstream cone queries
-  detection/           IsolationForest adapter + calendar-completeness rule check
-  rca/scorer.py        cone-constrained hypothesis ranking
-  agent/               LangGraph graph, repair catalog, sandbox verifier
-  control/             SQLite incident/audit log
-  faults/inject.py     the 5 required fault types
-dagster_project/       Dagster Definitions: dbt assets, detection checks, the agent job
-dbt_project/           dbt models (staging/marts), seeds, Elementary + dbt_utils packages
-scripts/fetch_data.py  reproducible pull of real NYC TLC data from Socrata
-tests/                 pytest suite, including the RCA eval harness
+  contracts.py         Signal -> Hypothesis -> Action -> Verification envelope; validate_day() SQL-injection guard
+  lineage/graph.py      dbt manifest -> networkx graph, upstream/downstream cone queries
+  detection/            IsolationForest adapter + calendar-completeness rule check
+  rca/scorer.py         cone-constrained hypothesis ranking
+  agent/                LangGraph graph, repair catalog, sandbox verifier
+  control/              SQLite incident/audit log
+  faults/inject.py      the 5 required fault types
+  eval/                 research-experiment harness: arrangement builder, the 4 ML models,
+                         the 2 RCA comparison baselines, Wilson-interval stats helper
+dagster_project/        Dagster Definitions: dbt assets, detection checks, the agent job
+dbt_project/             dbt models (staging/marts), seeds, Elementary + dbt_utils packages
+scripts/
+  fetch_data.py          reproducible pull of real NYC TLC data from Socrata (14-day demo dataset)
+  fetch_experiment_data.py  pulls the 28-train/14-test disjoint research dataset
+  run_research_experiments.py  the Phase 1/2/4 experiment runner -- produces experiments/results/
+  generate_figures.py   renders the PNGs in experiments/results/figures/ from that run's output
+experiments/
+  data/                 fetched research-dataset JSON, ~30MB (gitignored -- regenerate via fetch_experiment_data.py)
+  results/               committed: rca_results.csv / repair_results.csv / summary.json / figures/*.png
+                         (gitignored: the run's own incident sqlite + log -- regenerate the whole
+                         directory via run_research_experiments.py + generate_figures.py)
+tests/                  pytest suite, including the RCA eval harness
 docker/, docker-compose.yml
+RESEARCH_REPORT.md, EVALUATION_REPORT.md, ML_RESULTS.csv, DEMO_GUIDE.md   research deliverables (see above)
 ```

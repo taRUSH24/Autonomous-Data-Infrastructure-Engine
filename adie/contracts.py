@@ -6,10 +6,27 @@ plane can import it without pulling in Dagster, dbt, or LangGraph.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+_DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def validate_day(day: str) -> str:
+    """Shared guard for every call site that interpolates a day string
+    directly into SQL (adie.faults.inject, adie.agent.tools) rather than a
+    bound parameter -- DuckDB's Python API only binds `?` in value position,
+    not cleanly inside every `::date` cast shape these fault/repair
+    statements use. In the live agent path `day` can originate from an
+    LLM's structured-output response (adie.agent.graph), so this is a real
+    boundary, not a theoretical one: reject anything that isn't a plain
+    YYYY-MM-DD before it ever reaches an f-string bound for production SQL."""
+    if not _DAY_RE.match(day):
+        raise ValueError(f"day must be in YYYY-MM-DD format, got {day!r}")
+    return day
 
 
 def utcnow() -> str:
