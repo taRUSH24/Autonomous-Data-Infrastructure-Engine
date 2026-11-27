@@ -29,3 +29,7 @@ experiments/results/run.log
 
 .env
 dbt_project/package-lock.concurrent-update-lock
+
+# hybrid ensemble: run logs + per-run explanation reports (regenerable)
+experiments/*.log
+data/warehouse/explanations/

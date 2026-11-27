@@ -1,0 +1,54 @@
+{
+  "features": [
+    "trip_count",
+    "avg_fare_amount",
+    "avg_trip_distance_miles",
+    "avg_total_amount",
+    "unmatched_zone_count"
+  ],
+  "unsup_members": [
+    "isolation_forest",
+    "ecod",
+    "autoencoder"
+  ],
+  "combiner": "max",
+  "strategy": "hybrid_gated",
+  "weight": 0.15,
+  "t_sup": 0.9616484642028809,
+  "t_unsup": 0.9682539682539683,
+  "thresholds": {
+    "isolation_forest": 0.9285714285714286,
+    "ecod": 0.9285714285714286,
+    "autoencoder": 0.9603174603174602,
+    "unsup_ensemble": 0.9444444444444444,
+    "xgboost": 0.889991044998169,
+    "random_forest": 0.6975,
+    "hybrid_weighted": 0.8933191349818592,
+    "hybrid_gated": 1.0
+  },
+  "supervised_primary": "xgboost",
+  "localization": "shap_supervised",
+  "sup_fault_types": [
+    "duplicate_records",
+    "partial_partition",
+    "join_error",
+    "unit_change",
+    "schema_change"
+  ],
+  "n_train_clean": 165,
+  "n_train_fault_rows": 294,
+  "n_val_clean": 62,
+  "n_val_fault_rows": 105,
+  "max_val_fpr": 0.05,
+  "unsup_gate_alpha": 0.02,
+  "trained_on": "2023-01-15..2023-06-30",
+  "calibrated_on": "2023-07-01..2023-08-31",
+  "selection_source": "experiments/results/hybrid/selection.json",
+  "recommended_default_detector": "hybrid",
+  "library_versions": {
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "pyod": "3.6.9",
+    "shap": "0.54.1"
+  }
+}

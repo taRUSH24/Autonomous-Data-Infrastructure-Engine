@@ -58,8 +58,9 @@ REPAIR_CATALOG_DESCRIPTION = """\
 Available repair primitives (you must choose exactly one, or no_op if none fit):
 
 1. reingest_partition(day) -- re-runs ingestion for one day's raw trip rows
-   from the authoritative source file. Correct for: a day missing entirely,
-   a column gone null for one day, or corrupted location/value columns for
+   from the authoritative source file. Correct for: a day missing entirely
+   or truncated (trip_count far BELOW normal), a column gone null for one
+   day, a unit change, or corrupted location/value columns for
    one day -- anything where the symptom is scoped to a specific date and
    the upstream source (not a transformation) is implicated.
 

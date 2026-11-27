@@ -1,0 +1,17 @@
+split,arrangement,pickup_date,completeness_detected
+train,train_faults_0,2023-04-23,1
+train,train_faults_0,2023-05-09,1
+train,train_faults_1,2023-03-27,1
+train,train_faults_1,2023-05-05,1
+train,train_faults_2,2023-04-04,1
+train,train_faults_2,2023-05-06,1
+val,val_faults_0,2023-07-31,1
+val,val_faults_0,2023-07-12,1
+val,val_faults_1,2023-07-20,1
+val,val_faults_1,2023-08-31,0
+val,val_faults_2,2023-07-02,1
+val,val_faults_2,2023-08-25,1
+test,test_faults_0,2023-11-11,1
+test,test_faults_0,2023-09-11,1
+test,test_faults_1,2023-09-12,1
+test,test_faults_1,2023-12-13,1

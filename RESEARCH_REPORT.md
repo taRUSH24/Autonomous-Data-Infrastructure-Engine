@@ -3,6 +3,13 @@
 **Date:** 2026-11-25
 **Experiment run:** `experiments/results/summary.json`, generated 2026-11-25T00:16:36 by `scripts/run_research_experiments.py`
 
+> **Update 2026-11-27 — see [Part II](#part-ii--hybrid-explainable-anomaly-detection-2026-11-27).**
+> Part I below is preserved unchanged as the record of the first experiment. Part II re-examined it
+> and found evaluation issues that make Part I's perfect supervised scores optimistic
+> (pseudo-replicated clean rows, full-severity-only faults, and a data sample with constant
+> `trip_count` covering only ~00:00–06:00 of each day). Part II's numbers supersede Part I's
+> anomaly-detection numbers; Part I's RCA and repair-loop results are not re-measured there.
+
 All numbers in this report are read directly from that run's output (`experiments/results/*.csv`, `summary.json`). None are estimated, assumed, or back-filled. Where a result is small-sample or ambiguous, that is stated explicitly rather than rounded off.
 
 ## 1. Problem Statement
@@ -202,3 +209,280 @@ Item not exercised with a live LLM: the actual Claude-driven reasoning step in `
 2. Lineage-constrained RCA is not universally the most accurate by Top-1 in this experiment — a no-lineage ML classifier scored higher — but it is the only method that (a) correctly handles a fault type with no row-count signal (join_error) where the no-lineage statistical method fails completely, and (b) expresses genuine ranking uncertainty (Top-3) rather than a single possibly-overfit guess. Both properties matter more for a system meant to generalize to fault types not seen during training than a single Top-1 number can show.
 3. The agentic repair loop, run end-to-end on 16 independently-built fault cases, achieves 100% conditional repair success given detection, and — the result this project considers most important — correctly refuses to auto-repair the one fault type with no safe data-only fix.
 4. The project's stated reuse priority was followed throughout: every model in Phase 1 is an unmodified, established library implementation; Graph Neural Networks were considered and explicitly not introduced per the stated criteria; no detection, RCA, or agent logic was reimplemented for this research phase, only orchestrated and measured.
+
+---
+
+# Part II — Hybrid Explainable Anomaly Detection (2026-11-27)
+
+**Run:** `scripts/run_hybrid_experiments.py` → `experiments/results/hybrid/` (`summary.json`, `model_comparison.csv`, …).
+Two independent runs produced identical metrics (max absolute difference 0.0). The operational artifact
+(`models/hybrid_ensemble/`) is produced by `scripts/train_hybrid_ensemble.py` with the same code, data and
+validation-only choices. Every number below is copied from those files.
+
+## II.1 What was wrong with the Part I evaluation
+
+| Issue | Effect | Fix in Part II |
+|---|---|---|
+| `fetch_*` took the **first N trips of each day ordered by pickup time** | every day had exactly N trips (`trip_count` constant by construction) and only ~00:00–06:00 trips were seen | uniform sample of the whole day (pickup-second = 7, ≈1/60 of all trips); `trip_count` now varies with real demand |
+| each fault arrangement re-contributed all its **unfaulted** days | each real clean day appeared ~20× in train and test (pseudo-replication) | clean rows come from the clean arrangement exactly once; fault arrangements contribute only faulted days |
+| all faults were **full-severity** (3× duplication, 100 % broken zone ids) | near-deterministic separability → F1 = 1.0 | graded severities (fraction of the day's rows affected) |
+| 28 + 14 independent days | small, one season | 351 real days, chronological 3-way split |
+| the offline IF was fit on train rows **including faults** | contaminated "normal" model | unsupervised models fit on clean train days only |
+| ECOD scores a query batch *jointly* with its training set | test points shift each other's scores | rows scored one at a time (`adie/detection/hybrid.py:ecod_raw`, tested) |
+
+## II.2 Data
+
+Real NYC TLC 2023 yellow-taxi trips from Socrata (`scripts/fetch_hybrid_data.py`), 365 days, 636,644 sampled trips,
+pushed through the **real** pipeline (raw load → fault injection → `dbt build` → `fct_trips_daily`) for every
+arrangement (`adie/eval/hybrid_data.py`). The five existing features are unchanged.
+
+| Split | Dates | Clean days | Injected-fault rows | Purpose |
+|---|---|---|---|---|
+| live demo | 2023-01-01 … 01-14 | 14 | — | Dagster demo warehouse; never used for fitting |
+| train | 2023-01-15 … 06-30 | 165 | 294 | fit all models |
+| validation | 2023-07-01 … 08-31 | 62 | 105 | calibration, thresholds, fusion weight, every design choice |
+| test | 2023-09-01 … 12-31 | 116 | 142 | reported once |
+
+Fault types (row-level, one fault per day, graded severity = fraction of the day's rows hit):
+`duplicate_records` {0.1, 0.25, 0.5, 1.0}, `partial_partition` (new: truncated day) {0.1, 0.25, 0.5, 0.75},
+`join_error` {0.02, 0.1, 0.5, 1.0}, `unit_change` (new: miles→km) {0.25, 0.5, 1.0}, `schema_change` (full only —
+a *partial* null of `fare_amount` is invisible to `avg()`, see II.9). `missing_partition` produces no row, so it is
+handled by the existing completeness rule (16 injected: 15 caught; the miss is 2023-08-31, the **last** day of the
+validation range — the rule only checks gaps *inside* min..max and is blind at the boundary).
+
+**Real incidents found in the published source.** Building this dataset surfaced genuine data-quality incidents
+in Socrata itself: 2023-09-22/23/24 contain ~4,600–4,800 trips vs ~110,000 on neighbouring days (verified with
+full-day `count(*)` queries; 09-21 is partial), and 2023-03-17, 05-11, 10-30, 10-31 each contain a physically
+impossible trip (up to 18,469 miles in our sample; 131,376 miles in the full source on 10-31). These 8 days were
+identified by a fixed rule on raw rows (`hybrid_data.natural_anomaly_days`: < 50 % of median volume and not a
+pre-registered holiday, or any trip > 1,000 miles) — **not** by any detector — and held aside: excluded from clean
+training/calibration and from false-positive rates, reported separately (II.6).
+
+## II.3 Models and fusion (all library implementations)
+
+| Branch | Model | Library | Fit on |
+|---|---|---|---|
+| unsupervised | IsolationForest | scikit-learn (same estimator as the live detector) | clean train days |
+| unsupervised | ECOD | PyOD | clean train days |
+| unsupervised | AutoEncoder [4-2-4] (evaluated, then **selected** — II.4) | PyOD + torch | clean train days |
+| supervised | XGBoost (primary), RandomForest (baseline) | xgboost / scikit-learn, Part I hyper-parameters | clean + labelled fault train rows |
+
+Custom code is limited to: **calibration** — each unsupervised raw score → its empirical-CDF position among clean
+*validation* days, with an exponential tail above the largest clean score so it never saturates
+(`TailCalibrator`); **combination** — average or max of calibrated scores; **fusion**:
+
+* *weighted*: `s = w·p_sup + (1−w)·u`, `w` and threshold grid-searched on validation (selected `w` = 0.15);
+* *gated*: alarm if `p_sup ≥ t_sup` (known-fault pattern) **or** `u ≥ t_unsup` (novelty). `t_unsup` is label-free:
+  at most 2 % of clean validation days above it (0.968). `t_sup` then maximises validation F1 with total
+  validation FPR ≤ 5 % (0.962). Exposed as one score `max(p/t_sup, u/t_unsup)`, alarm at ≥ 1.
+
+Every threshold, for every model, maximises validation F1 subject to validation FPR ≤ 5 %. Test data is used for nothing but the numbers below.
+
+## II.4 Validation-only design decisions
+
+**E0 — unsupervised members** (`unsupervised_design_validation.csv`; validation PR-AUC):
+
+| Members / combiner | PR-AUC | Recall @ FPR ≤ 5 % |
+|---|---|---|
+| IF + ECOD, average | 0.810 | 0.181 |
+| IF + ECOD, max | 0.849 | 0.314 |
+| IF + ECOD + AE, average | 0.861 | 0.238 |
+| **IF + ECOD + AE, max** (selected) | **0.949** | **0.695** |
+| individual: IF 0.813, ECOD 0.828, **AE 0.949** | | |
+
+The AutoEncoder was added only because it clearly improved validation performance, as the brief required. The
+reason is structural: **IF and ECOD scores saturate beyond the training range** (ECOD's per-feature tail score is
+capped near `log(n+1)`; IF isolates "far out" and "just past the minimum" with the same splits), so a day whose
+volume doubles looks no more anomalous than a day slightly outside the range on every feature. Reconstruction error
+is unbounded. With 165 training days the AE is tiny (4-2-4) and its validation gain is large, so the data-volume concern did not block it.
+
+**Model selection** (`model_selection_validation.csv`): score = ½·(validation F1, all types known) + ½·(validation
+recall on the held-out type, averaged over leave-one-type-out folds), eligible if validation FPR ≤ 5 %.
+
+| Candidate | Val F1 | Val FPR | Val unseen recall | Score |
+|---|---|---|---|---|
+| **hybrid_gated** (selected) | 0.832 | 0.048 | 0.680 | **0.756** |
+| unsup_ensemble | 0.807 | 0.048 | 0.680 | 0.743 |
+| autoencoder | 0.802 | 0.016 | 0.680 | 0.741 |
+| isolation_forest_live (deployed baseline) | 0.774 | **0.145** (ineligible) | 0.690 | 0.732 |
+| hybrid_weighted | 0.875 | 0.048 | 0.223 | 0.549 |
+| random_forest | 0.881 | 0.048 | 0.077 | 0.479 |
+| xgboost | 0.839 | 0.048 | 0.096 | 0.468 |
+
+> **Disclosure.** The legacy statistical z-score baseline (|z| > 3 on any feature) was registered as
+> research-only and so was not in this pool. Scored afterwards on the *same validation criterion* it gets
+> **0.785** (F1 0.832, FPR 0.048, unseen recall 0.738) — it **would have been selected** over the hybrid.
+> We noticed its strength on test data, so we did not re-design the ensemble around it (that would leak test
+> information into the design); see II.8.
+
+Localization (which feature a Signal names, the hint RCA consumes) was also chosen on validation faults:
+SHAP-supervised 0.952, z-score 0.914, ECOD 0.876 → `shap_supervised`.
+
+## II.5 Results on TEST (Sep–Dec 2023)
+
+**E1 known faults + E3 clean days** (`model_comparison.csv`; 142 fault rows, 116 clean days; FPR 95 % Wilson CI):
+
+| Model | Prec. | Recall | F1 | FPR [95 % CI] | ROC-AUC | PR-AUC | Prec. @ 5 % prevalence | ms / single day |
+|---|---|---|---|---|---|---|---|---|
+| IsolationForest — live per-batch (**current default before this change**) | 0.851 | 0.725 | 0.783 | 0.155 [0.100, 0.232] | – | – | 0.197 | 159.9 |
+| IsolationForest — calibrated | 0.788 | 0.366 | 0.500 | 0.121 [0.073, 0.192] | 0.749 | 0.738 | 0.138 | 22.4 |
+| ECOD | 0.846 | 0.310 | 0.454 | 0.069 [0.035, 0.130] | 0.804 | 0.790 | 0.191 | 22.4 |
+| AutoEncoder | 0.921 | 0.739 | 0.820 | 0.078 [0.041, 0.141] | 0.912 | 0.936 | 0.334 | 22.7 |
+| Unsup. ensemble (IF+ECOD+AE, max) | 0.908 | 0.761 | 0.828 | 0.095 [0.054, 0.162] | 0.911 | 0.935 | 0.297 | 22.9 |
+| XGBoost | **0.922** | 0.838 | **0.878** | 0.086 [0.047, 0.151] | 0.943 | 0.955 | 0.338 | **2.6** |
+| RandomForest | 0.910 | **0.852** | **0.880** | 0.103 [0.060, 0.172] | **0.945** | **0.957** | 0.302 | 18.1 |
+| Hybrid — weighted | 0.896 | 0.845 | 0.870 | 0.121 [0.073, 0.192] | 0.929 | 0.952 | 0.269 | 50.7 |
+| **Hybrid — gated (selected)** | 0.906 | 0.810 | 0.855 | 0.103 [0.060, 0.172] | 0.929 | 0.951 | 0.292 | 50.6 |
+| z-score \|z\|>3 (legacy research baseline) | **0.924** | 0.768 | 0.838 | **0.078** [0.041, 0.141] | – | – | **0.342** | – |
+| IsolationForest fit-once, contamination 0.1 (Part I variant) | 0.721 | 0.711 | 0.716 | 0.336 [0.257, 0.426] | – | – | 0.100 | – |
+
+Precision on the test set is flattered by its ~55 % fault prevalence; the "@ 5 % prevalence" column re-weights
+recall/FPR to one bad day in twenty. Latency is wall-clock on this machine; the hybrid's 50 ms is dominated by
+ECOD's one-row-at-a-time scoring and is irrelevant for a daily batch.
+
+**Recall by fault type (E1):**
+
+| Model | duplicate | partial_partition | join_error | unit_change | schema_change |
+|---|---|---|---|---|---|
+| IF live | 0.567 | 0.448 | 0.966 | 0.704 | 0.963 |
+| Unsup. ensemble | 0.733 | 0.621 | 1.000 | 0.444 | 1.000 |
+| XGBoost | 0.767 | 0.655 | 1.000 | 0.778 | 1.000 |
+| Hybrid gated | 0.767 | 0.621 | 1.000 | 0.667 | 1.000 |
+| z-score | 0.733 | 0.621 | 1.000 | 0.481 | 1.000 |
+
+Misses are concentrated at low severity (`figures/detection_by_severity.png`): a 10 % duplication or truncation
+moves `trip_count` less than ordinary weekday/weekend variation, and without calendar features no model here can
+separate the two. (Each severity point rests on 4–12 cases; treat the curve shape, not individual points.)
+
+**E2 leave-one-fault-type-out — detection of the UNSEEN type** (`lofo_results.csv`; the held-out type is removed
+from supervised training *and* from validation calibration):
+
+| Held out → | duplicate | join_error | partial_partition | schema_change | unit_change | **pooled** [95 % CI] |
+|---|---|---|---|---|---|---|
+| XGBoost | 0.07 | 0.17 | 0.03 | 0.33 | 0.52 | 0.218 [0.158, 0.293] |
+| RandomForest | 0.07 | 0.17 | 0.03 | 0.22 | 0.04 | 0.106 [0.065, 0.167] |
+| Hybrid weighted | 0.13 | 0.34 | 0.03 | 0.63 | 0.59 | 0.338 [0.265, 0.419] |
+| **Hybrid gated** | 0.73 | 1.00 | 0.62 | 1.00 | 0.33 | **0.739** [0.662, 0.805] |
+| Unsup. ensemble | 0.73 | 1.00 | 0.62 | 1.00 | 0.33 | 0.739 |
+| IF live | 0.57 | 0.97 | 0.45 | 0.96 | 0.70 | 0.725 [0.647, 0.792] |
+| z-score | 0.73 | 1.00 | 0.62 | 1.00 | 0.48 | 0.768 [0.692, 0.829] |
+
+**Known vs unseen** (`known_vs_unseen.csv`, `figures/known_vs_unseen.png`): XGBoost 0.838 → 0.218, RandomForest
+0.852 → 0.106, hybrid gated **0.810 → 0.739**. The supervised models recognise what they were shown and little else;
+the gated hybrid keeps most of its detection when a fault type is new, because the novelty gate fires on its own.
+Its unseen detection is exactly the unsupervised branch's: the supervised branch adds nothing on new types, as expected.
+The weighted fusion (`w` re-tuned per fold on known types only) learns to trust the supervised score and loses the
+unseen types — this is why the gate, not the weighted average, was selected.
+
+## II.6 Legitimate distribution changes and real incidents
+
+**Legitimate events (should not alarm)** — 9 pre-registered test-period events (`legit_event_alarms.csv`):
+
+| Day | Event | IF live | XGB | Hybrid gated | z-score |
+|---|---|---|---|---|---|
+| 09-04 | Labor Day | ✗ alarm | ✗ | ✗ | ✗ |
+| 09-29 | Flash-flood emergency | ✗ | ✓ | ✗ | ✗ |
+| 10-09 | Columbus Day | ✗ | ✓ | ✓ | ✓ |
+| 11-05 | NYC Marathon | ✓ | ✓ | ✓ | ✓ |
+| 11-23 | Thanksgiving | ✗ | ✗ | ✗ | ✗ |
+| 11-24 | Black Friday | ✓ | ✗ | ✓ | ✓ |
+| 12-24 | Christmas Eve | ✓ | ✗ | ✗ | ✗ |
+| 12-25 | Christmas Day | ✗ | ✗ | ✗ | ✗ |
+| 12-31 | New Year's Eve | ✓ | ✓ | ✓ | ✓ |
+
+The hybrid false-alarms on 5 / 9 event days (FPR 0.556) against 0.065 on ordinary clean days; **most of its test FPR
+comes from holidays/weather**. Every model shares this, because none of the five features knows the calendar.
+Each such alarm would reach the agent as a repair proposal; the human-approval gate and sandbox verification are
+what stop it from becoming an unnecessary repair (a re-ingest of a correct day resolves nothing, so the revised
+sandbox check rejects it — II.7). The same failure appears in the live demo window: both detectors flag
+2023-01-02 (observed New Year holiday, 1,065 sampled trips).
+
+**Real source incidents held aside** (`natural_source_anomalies_test.csv`): the 09-21…09-24 volume gap was flagged
+by **every** model (4/4). The impossible-trip days: hybrid gated 2/2, XGBoost 2/2, IF live 2/2, z-score 1/2,
+ECOD 0/2. Hybrid gated 6/6 overall. These are real, unscripted upstream failures in the public dataset; the
+hybrid's two branches together catch all of them (n = 6 — anecdotal, not a rate).
+
+## II.7 Explainable AI (SHAP, LIME) — results and what they mean
+
+All explanations are computed on **test** days with models fit on **train** only; LIME's sampling statistics come
+from the training split only.
+
+* **What is being explained.** Supervised SHAP/LIME explain the *fault probability* (TreeSHAP on XGBoost is in
+  log-odds; on RandomForest in probability). IsolationForest TreeSHAP explains *path length*; ECOD's per-feature
+  tail scores are exact additive contributions to its *anomaly score*; the calibrated ensemble score is explained
+  model-agnostically (permutation SHAP with 50 clean train days as background; LIME in regression mode). The
+  pipeline labels which one it shows (`primary_explains`).
+* **Global importance (XGBoost, mean |SHAP|, log-odds)** — `global_top5_features.csv`: 1 `trip_count` 1.93,
+  2 `avg_trip_distance_miles` 1.37, 3 `avg_fare_amount` 1.19, 4 `unmatched_zone_count` 0.87, 5 `avg_total_amount` 0.44.
+  `trip_count` ranks first for every model (`shap_global_importance.csv`). With five features, "top five" is the
+  complete ranking; `unmatched_zone_count` ranks low globally only because it is non-zero on few days, while being
+  decisive when it is (`figures/shap_beeswarm_xgboost.png`).
+* **Localization accuracy** (top-1 attributed feature = the feature the fault corrupts; `explanation_localization_test.csv`):
+  SHAP-RandomForest 0.99, z-score 0.97, SHAP-XGBoost 0.96, LIME-XGBoost 0.95, SHAP-ensemble 0.93, ECOD 0.91,
+  LIME-ensemble 0.66. LIME on the *ensemble* score is the weak one: the gated score is a max of two branches, and
+  LIME's local linear surrogate over discretised bins fits that kink poorly (e.g. it scores 0.00 on partial_partition).
+* **SHAP vs LIME (XGBoost, 115 detected test faults; `shap_vs_lime.csv`)**: top-1 feature agreement 0.92, top-3
+  Jaccard 0.58, Spearman of |attributions| 0.39. They agree on *what drove the alarm*; they disagree on the ordering
+  of the minor features, which carry little signal either way.
+* **Representative anomalies** (one median-severity detected case per fault type): `figures/explanations/
+  waterfall_xgboost_*.png`, `waterfall_ensemble_*.png`, `lime_xgboost_*.png`, `lime_ensemble_*.png`,
+  `lime_representative_anomalies.json` (top-5 lists + LIME rules). Per-prediction top-5 for every flagged test day
+  and seven attribution methods: `top5_features_per_prediction.csv`.
+
+**What SHAP/LIME do *not* do.** They say which aggregate feature moved, not which pipeline asset caused it. Root
+cause stays with the lineage-constrained RCA (`adie/rca/scorer.py`, unchanged). Feeding the hybrid's localized
+metric into it (`rca_handoff_test.csv`): top-1 asset 0.61 (SHAP), 0.62 (ECOD), 0.60 (z-score); **top-2 1.00** for
+all. The top-1 misses are schema_change and unit_change, whose value-level metrics the RCA scorer deliberately
+credits to both `trips` and `stg_trips` (Part I §6.2) — an RCA design property, not an explanation error.
+
+## II.8 Discussion — did the hybrid help?
+
+* **Against the detector the pipeline actually ran** (per-batch IsolationForest): yes on every axis — F1 0.855 vs
+  0.783, FPR 0.103 vs 0.155, unseen-type detection 0.739 vs 0.725, 6/6 vs 6/6 real incidents, and no forced
+  10 %-of-every-batch alarm quota. It also detects the code-level `transformation_defect` (every day's fare doubled)
+  on 14/14 demo days, which the per-batch IF structurally cannot (a uniform shift is invisible relative to its own batch).
+* **Against XGBoost alone**: worse on known faults (recall 0.810 vs 0.838, F1 0.855 vs 0.878) and slightly higher
+  FPR (0.103 vs 0.086); far better on unseen faults (0.739 vs 0.218). The known-fault cost is the price of the
+  gate: the novelty gate uses part of the 5 % validation FPR budget, so `t_sup` must rise to 0.962.
+* **Against the simple z-score baseline: not better.** Within overlapping confidence intervals the z-score matches
+  or beats the hybrid on precision, FPR and unseen detection, losing only on known-fault recall (0.768 vs 0.810).
+  The injected faults each corrupt one feature, and an unbounded per-feature deviation is exactly the right
+  statistic for that. The tree/ECDF detectors saturate; the AutoEncoder is what rescues the unsupervised branch.
+  An honest reading: **with five aggregate features, most of the hybrid's detection value comes from the
+  AutoEncoder and XGBoost; its distinct contributions are (a) graded fault probability + novelty labelling
+  (`supervised_known_fault` / `unsupervised_novel`), (b) SHAP/LIME explanations, and (c) known-fault recall.**
+* **Uncertainty.** 116 clean test days give FPR intervals ~±5 pp wide; the top five models' differences are mostly
+  inside them. Test FPRs (7–16 %) exceed the 5 % validation budget for every model: the test period is a later
+  season with more holidays (and the validation period is summer).
+
+Because the deployed baseline is clearly weaker, the hybrid is the configured default (`ADIE_DETECTOR=hybrid`, from
+the artifact's validation-selected recommendation). The original IsolationForest remains one setting away and is
+the automatic fallback. Whether to promote the z-score baseline into the ensemble is a decision to make **on
+fresh data** (e.g. 2024) after pre-registering it — not on this test set.
+
+## II.9 Limitations
+
+1. **Five aggregate features, no calendar.** Holidays drive most false alarms; low-severity volume faults are
+   indistinguishable from demand swings. Day-of-week/holiday features are the obvious next step (not added here
+   because the brief fixed the five features).
+2. **Injected faults are synthetic** (real data, simulated corruption). Each corrupts essentially one feature;
+   multi-feature or gradual faults are not represented. A partial `schema_change` is undetectable by design
+   (`avg()` ignores NULLs) and was therefore not injected.
+3. **Leave-one-type-out with five types** is a coarse proxy for "unseen in production".
+4. **Single year, single dataset, ~1/60 sample**; 365 independent days is better than 42 but still modest.
+5. Validation serves both conformal calibration and threshold selection (all non-test, but slightly optimistic,
+   which is part of why test FPR > 5 %).
+6. Completeness rule cannot see a missing day at the edge of the range (1/16 missed).
+7. Single-threaded wall-clock latency on one machine.
+
+## II.10 Operational role of every model
+
+| Model | In the operational pipeline | In research |
+|---|---|---|
+| Hybrid gated (IF + ECOD + AE ‖ XGBoost) | **Default detector** (`ADIE_DETECTOR=hybrid`); pretrained artifact, loaded not retrained | evaluated E1–E4 |
+| XGBoost | supervised branch of the hybrid; its TreeSHAP is the primary explanation and localization | standalone comparison |
+| RandomForest | stored in the artifact as the supervised comparison baseline; not used for decisions | standalone comparison |
+| IsolationForest (calibrated), ECOD, AutoEncoder | unsupervised members (max of calibrated scores); ECOD attributions included in each report | standalone comparisons |
+| IsolationForest per-batch (original) | **baseline + automatic fallback** (`ADIE_DETECTOR=isolation_forest`); its Dagster check still runs | evaluated as deployed |
+| z-score \|z\|>3, IF fit-once | none | research baselines only |
+| Calendar-completeness rule | always on (missing days have no row for any ML model) | II.2 |

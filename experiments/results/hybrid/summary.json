@@ -1,0 +1,164 @@
+{
+  "generated_at": "2026-11-27T21:41:28",
+  "splits": {
+    "train": {
+      "start": "2023-01-15",
+      "end": "2023-06-30",
+      "rows": 459,
+      "clean_days": 165,
+      "fault_rows": 294
+    },
+    "val": {
+      "start": "2023-07-01",
+      "end": "2023-08-31",
+      "rows": 167,
+      "clean_days": 62,
+      "fault_rows": 105
+    },
+    "test": {
+      "start": "2023-09-01",
+      "end": "2023-12-31",
+      "rows": 258,
+      "clean_days": 116,
+      "fault_rows": 142
+    }
+  },
+  "e0_unsupervised_design": {
+    "members": [
+      "isolation_forest",
+      "ecod",
+      "autoencoder"
+    ],
+    "combiner": "max",
+    "autoencoder_evaluated": true
+  },
+  "selected_by_validation": "hybrid_gated",
+  "artifact_strategy": "hybrid_gated",
+  "default_detector": "hybrid",
+  "localization_validation_accuracy": {
+    "zscore": 0.9142857142857143,
+    "ecod": 0.8761904761904762,
+    "shap_supervised": 0.9523809523809523
+  },
+  "localization_selected": "shap_supervised",
+  "fusion": {
+    "weight_sup": 0.15,
+    "t_sup": 0.9616484642028809,
+    "t_unsup": 0.9682539682539683,
+    "thresholds": {
+      "isolation_forest": 0.9285714285714286,
+      "ecod": 0.9285714285714286,
+      "autoencoder": 0.9603174603174602,
+      "unsup_ensemble": 0.9444444444444444,
+      "xgboost": 0.889991044998169,
+      "random_forest": 0.6975,
+      "hybrid_weighted": 0.8933191349818592,
+      "hybrid_gated": 1.0
+    }
+  },
+  "natural_source_anomalies_held_aside": [
+    {
+      "split": "train",
+      "pickup_date": "2023-03-17",
+      "natural_anomaly": "impossible_trip"
+    },
+    {
+      "split": "train",
+      "pickup_date": "2023-05-11",
+      "natural_anomaly": "impossible_trip"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-09-21",
+      "natural_anomaly": "source_volume_gap"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-09-22",
+      "natural_anomaly": "source_volume_gap"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-09-23",
+      "natural_anomaly": "source_volume_gap"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-09-24",
+      "natural_anomaly": "source_volume_gap"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-10-30",
+      "natural_anomaly": "impossible_trip"
+    },
+    {
+      "split": "test",
+      "pickup_date": "2023-10-31",
+      "natural_anomaly": "impossible_trip"
+    }
+  ],
+  "natural_test_detection_rate": {
+    "autoencoder": 0.8333333333333334,
+    "ecod": 0.6666666666666666,
+    "hybrid_gated": 1.0,
+    "hybrid_weighted": 0.8333333333333334,
+    "isolation_forest": 0.8333333333333334,
+    "isolation_forest_fit_once_legacy": 1.0,
+    "isolation_forest_live": 1.0,
+    "random_forest": 1.0,
+    "statistical_zscore": 0.8333333333333334,
+    "unsup_ensemble": 0.8333333333333334,
+    "xgboost": 1.0
+  },
+  "missing_partition_completeness_recall": 0.9375,
+  "shap_vs_lime": {
+    "top1_agreement": 0.9217391304347826,
+    "mean_top3_jaccard": 0.5782608695652174,
+    "mean_spearman_abs": 0.39391304347826084,
+    "n": 115
+  },
+  "rca_handoff_top1": {
+    "ecod": 0.6173913043478261,
+    "shap_supervised": 0.6086956521739131,
+    "zscore": 0.6
+  },
+  "latency": {
+    "isolation_forest": {
+      "batch_ms_per_row": 1.1320671007750265,
+      "single_row_ms": 21.96003643333218
+    },
+    "ecod": {
+      "batch_ms_per_row": 1.1392088255832264,
+      "single_row_ms": 21.97315636667554
+    },
+    "xgboost": {
+      "batch_ms_per_row": 0.005008755815369952,
+      "single_row_ms": 0.2571571333343551
+    },
+    "random_forest": {
+      "batch_ms_per_row": 0.07978999999892927,
+      "single_row_ms": 17.647483300000506
+    },
+    "unsup_ensemble": {
+      "batch_ms_per_row": 1.170639608527952,
+      "single_row_ms": 21.973406400017364
+    },
+    "hybrid_weighted": {
+      "batch_ms_per_row": 1.2028795000022834,
+      "single_row_ms": 40.92647803333117
+    },
+    "hybrid_gated": {
+      "batch_ms_per_row": 1.23256170155055,
+      "single_row_ms": 41.467496800002365
+    },
+    "autoencoder": {
+      "batch_ms_per_row": 1.1355070775198681,
+      "single_row_ms": 21.82233383333975
+    },
+    "isolation_forest_live": {
+      "batch_ms_per_row": NaN,
+      "single_row_ms": 142.44159103333612
+    }
+  }
+}

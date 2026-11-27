@@ -103,3 +103,43 @@ Recovery time by fault type: missing_partition 27.5s, duplicate_records 28.7s, j
 - `experiments/results/repair_results.csv` — every agent repair outcome
 - `experiments/results/false_alarm_results.csv` — every clean-day flag
 - `experiments/results/summary.json` — the aggregated numbers in this document
+
+---
+
+# Hybrid ensemble + XAI evaluation (2026-11-27)
+
+Full method and discussion: [`RESEARCH_REPORT.md` Part II](RESEARCH_REPORT.md#part-ii--hybrid-explainable-anomaly-detection-2026-11-27).
+Raw outputs: `experiments/results/hybrid/`. Real NYC TLC 2023 data, chronological splits — train Jan 15–Jun 30
+(165 clean days / 294 fault rows), validation Jul–Aug (62 / 105), test Sep–Dec (116 / 142). All thresholds from validation.
+
+## Test results (known faults + clean days)
+
+| Model | Precision | Recall | F1 | FPR | PR-AUC | Unseen-type detection (LOFO) |
+|---|---|---|---|---|---|---|
+| IsolationForest, live per-batch (previous default) | 0.851 | 0.725 | 0.783 | 0.155 | – | 0.725 |
+| Unsupervised ensemble (IF + ECOD + AE, max) | 0.908 | 0.761 | 0.828 | 0.095 | 0.935 | 0.739 |
+| XGBoost | 0.922 | 0.838 | 0.878 | 0.086 | 0.955 | 0.218 |
+| RandomForest | 0.910 | 0.852 | 0.880 | 0.103 | 0.957 | 0.106 |
+| Hybrid weighted | 0.896 | 0.845 | 0.870 | 0.121 | 0.952 | 0.338 |
+| **Hybrid gated (selected on validation, now default)** | 0.906 | 0.810 | 0.855 | 0.103 | 0.951 | **0.739** |
+| z-score \|z\|>3 (research baseline) | 0.924 | 0.768 | 0.838 | 0.078 | – | 0.768 |
+
+* Hybrid gated beats the previously deployed detector on every metric, keeps 0.739 of its detection on fault
+  types it never saw (XGBoost: 0.218), but is **not** better than the simple z-score baseline, which would also
+  have won the validation-only selection had it been in the pool (II.4, II.8).
+* False alarms concentrate on holidays/weather: 5 of 9 legitimate-event days flagged vs 6.5 % of ordinary days.
+* Real source incidents found in the public data (Sep 21–24 volume gap, impossible-trip days): hybrid 6/6.
+
+## Explainability
+
+* Global top-5 (XGBoost mean |SHAP|): trip_count 1.93 > avg_trip_distance_miles 1.37 > avg_fare_amount 1.19 >
+  unmatched_zone_count 0.87 > avg_total_amount 0.44.
+* Top-1 attributed feature = feature the fault corrupted: SHAP-XGBoost 0.96, LIME-XGBoost 0.95, ECOD 0.91.
+* SHAP vs LIME (115 detected faults): top-1 agreement 0.92, top-3 Jaccard 0.58.
+* Explanations are feature attributions, not root causes; RCA remains lineage-based (top-2 asset accuracy 1.00).
+
+## Figures (`experiments/results/hybrid/figures/`)
+
+`ensemble_vs_single_models.png`, `known_vs_unseen.png`, `lofo_unseen_detection.png`, `detection_by_severity.png`,
+`precision_recall_e1.png`, `shap_beeswarm_*.png`, `shap_bar_*.png`, `shap_vs_lime_agreement.png`,
+`explanations/waterfall_*.png`, `explanations/lime_*.png`.

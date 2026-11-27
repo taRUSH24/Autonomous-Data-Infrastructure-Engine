@@ -14,14 +14,20 @@ import tempfile
 from pathlib import Path
 
 from adie.contracts import Action, ActionKind, Verification
-from adie.detection import completeness, isolation_forest
+from adie.detection import selector
 
 
 def _run_checks(duckdb_path: str) -> dict:
-    signals = isolation_forest.detect(duckdb_path) + completeness.detect(duckdb_path)
+    # Same detector the pipeline is configured with (ADIE_DETECTOR), so a
+    # repair is verified against the signal that triggered it. Explanations
+    # are skipped here -- verification only needs the alarms.
+    signals, used = selector.detect_all(duckdb_path, explain=False)
+    critical = sorted({f"{s.check_name}@{s.raw.get('pickup_date')}" for s in signals if s.severity.value == "critical"})
     return {
+        "detector": used,
         "signal_count": len(signals),
-        "critical_count": sum(1 for s in signals if s.severity.value == "critical"),
+        "critical_count": len(critical),
+        "critical_keys": critical,
         "messages": [s.message for s in signals],
     }
 
@@ -86,9 +92,16 @@ def verify_action(
     checks_after = _run_checks(sandbox_path)
     log.append(f"checks after repair: {checks_after}")
 
-    passed = ok and checks_after["critical_count"] == 0 and (
-        checks_after["signal_count"] <= checks_before["signal_count"]
-    )
+    # Pass iff the repair (a) resolved at least one critical alarm, (b)
+    # introduced no NEW critical alarm, and (c) did not increase the total
+    # signal count. Originally this required zero critical alarms anywhere,
+    # which on real data means one unrelated pre-existing alarm (e.g. a
+    # holiday the detector dislikes) blocks every correct repair forever.
+    # A wrong-day repair still fails: it resolves nothing.
+    before, after = set(checks_before["critical_keys"]), set(checks_after["critical_keys"])
+    passed = ok and after < before and checks_after["signal_count"] <= checks_before["signal_count"]
+    if passed and after:
+        log.append(f"pre-existing critical alarms unrelated to this repair remain: {sorted(after)}")
 
     return Verification(
         action=action,

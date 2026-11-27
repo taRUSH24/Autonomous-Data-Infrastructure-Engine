@@ -34,16 +34,66 @@ def _fault_missing_partition(day: str) -> FaultSpec:
     )
 
 
-def _fault_duplicate_records(day: str, factor: int = 3) -> FaultSpec:
+def _subset(fraction: float, alias: str = "") -> str:
+    """Deterministic row subset for partial-severity faults: a stable hash
+    of each trip's identifying columns, so the same `fraction` always hits
+    the same rows (reproducible experiments) without needing a row id.
+    fraction >= 1.0 returns an always-true predicate (the original,
+    full-day behaviour of every fault)."""
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"fraction must be in (0, 1], got {fraction}")
+    if fraction >= 1.0:
+        return "true"
+    a = f"{alias}." if alias else ""
+    cutoff = int(round(fraction * 10000))
+    return (
+        f"(hash({a}tpep_pickup_datetime, {a}tpep_dropoff_datetime, {a}pulocationid, "
+        f"{a}dolocationid, {a}trip_distance, {a}total_amount) % 10000) < {cutoff}"
+    )
+
+
+def _fault_duplicate_records(day: str, factor: int = 3, fraction: float = 1.0) -> FaultSpec:
     return FaultSpec(
         name="duplicate_records",
-        description=f"Duplicates every raw trip row for {day} {factor}x, simulating a replay/at-least-once ingestion bug.",
+        description=(
+            f"Duplicates {fraction:.0%} of raw trip rows for {day} {factor}x, "
+            "simulating a replay/at-least-once ingestion bug."
+        ),
         ground_truth_asset="trips",
         mechanism="upstream_source_quality",
         sql=(
             "insert into raw.trips select t.* from raw.trips t, "
             f"generate_series(1, {factor - 1}) g "
-            f"where t.tpep_pickup_datetime::date = date '{day}'"
+            f"where t.tpep_pickup_datetime::date = date '{day}' and {_subset(fraction, 't')}"
+        ),
+    )
+
+
+def _fault_partial_partition(day: str, fraction: float = 0.5) -> FaultSpec:
+    return FaultSpec(
+        name="partial_partition",
+        description=(
+            f"Deletes {fraction:.0%} of raw trip rows for {day}, simulating a truncated / "
+            "late-arriving upstream partition (the day exists but is incomplete)."
+        ),
+        ground_truth_asset="trips",
+        mechanism="upstream_source_quality",
+        sql=f"delete from raw.trips where tpep_pickup_datetime::date = date '{day}' and {_subset(fraction)}",
+    )
+
+
+def _fault_unit_change(day: str, fraction: float = 1.0) -> FaultSpec:
+    return FaultSpec(
+        name="unit_change",
+        description=(
+            f"Rewrites trip_distance in kilometres instead of miles for {fraction:.0%} of {day}'s raw "
+            "rows, simulating an upstream producer silently changing units."
+        ),
+        ground_truth_asset="trips",
+        mechanism="upstream_source_quality",
+        sql=(
+            "update raw.trips set trip_distance = cast(cast(trip_distance as double) * 1.609344 as varchar) "
+            f"where tpep_pickup_datetime::date = date '{day}' and {_subset(fraction)}"
         ),
     )
 
@@ -74,13 +124,13 @@ def _fault_incorrect_transformation() -> FaultSpec:
     )
 
 
-def _fault_join_error(day: str) -> FaultSpec:
+def _fault_join_error(day: str, fraction: float = 1.0) -> FaultSpec:
     return FaultSpec(
         name="join_error",
-        description=f"Corrupts pickup_location_id to an out-of-range zone id for {day}, so trips_enriched's join silently drops the zone match.",
+        description=f"Corrupts pickup_location_id to an out-of-range zone id for {fraction:.0%} of {day}'s rows, so trips_enriched's join silently drops the zone match.",
         ground_truth_asset="trips_enriched",
         mechanism="join_defect",
-        sql=f"update raw.trips set pulocationid = '9999' where tpep_pickup_datetime::date = date '{day}'",
+        sql=f"update raw.trips set pulocationid = '9999' where tpep_pickup_datetime::date = date '{day}' and {_subset(fraction)}",
     )
 
 
@@ -89,6 +139,23 @@ REGISTRY = {
     "duplicate_records": _fault_duplicate_records,
     "schema_change": _fault_schema_change,
     "join_error": _fault_join_error,
+    # Added for the hybrid-ensemble experiments (more fault *types* make
+    # leave-one-fault-type-out evaluation meaningful). Both are upstream
+    # data faults the existing reingest_partition repair can fix.
+    "partial_partition": _fault_partial_partition,
+    "unit_change": _fault_unit_change,
+}
+
+# Which fct_trips_daily feature each fault type is *designed* to move --
+# the ground truth used to score explanation localization (does SHAP /
+# LIME / ECOD point at the feature the fault actually corrupted?). Not used
+# by any detector.
+EXPECTED_FEATURE = {
+    "duplicate_records": "trip_count",
+    "partial_partition": "trip_count",
+    "schema_change": "avg_fare_amount",
+    "join_error": "unmatched_zone_count",
+    "unit_change": "avg_trip_distance_miles",
 }
 
 
@@ -96,7 +163,7 @@ def apply(duckdb_path: str, fault_name: str, day: str = "2023-01-03", **kwargs) 
     if fault_name not in REGISTRY:
         raise ValueError(f"unknown fault '{fault_name}', choose one of {list(REGISTRY)}")
     _validate_day(day)
-    spec = REGISTRY[fault_name](day, **kwargs) if fault_name == "duplicate_records" else REGISTRY[fault_name](day)
+    spec = REGISTRY[fault_name](day, **kwargs)
 
     con = duckdb.connect(duckdb_path)
     try:

@@ -1,0 +1,31 @@
+model,explains,method,output_space,feature,mean_abs_shap,rank
+ecod,anomaly score,ECOD per-feature tail score (exact),-log tail probability,trip_count,2.725912997722592,1
+ecod,anomaly score,ECOD per-feature tail score (exact),-log tail probability,avg_trip_distance_miles,2.1162099454795276,2
+ecod,anomaly score,ECOD per-feature tail score (exact),-log tail probability,avg_fare_amount,2.0145182124049517,3
+ecod,anomaly score,ECOD per-feature tail score (exact),-log tail probability,avg_total_amount,1.833592776455158,4
+ecod,anomaly score,ECOD per-feature tail score (exact),-log tail probability,unmatched_zone_count,0.5746032785362004,5
+hybrid_gated,ensemble score,Permutation SHAP (flagged days),score,trip_count,0.19883016169012754,1
+hybrid_gated,ensemble score,Permutation SHAP (flagged days),score,avg_trip_distance_miles,0.11574827432483538,2
+hybrid_gated,ensemble score,Permutation SHAP (flagged days),score,avg_fare_amount,0.11080044326143398,3
+hybrid_gated,ensemble score,Permutation SHAP (flagged days),score,unmatched_zone_count,0.08527358745211085,4
+hybrid_gated,ensemble score,Permutation SHAP (flagged days),score,avg_total_amount,0.05309255299211692,5
+isolation_forest,anomaly score (path length),TreeSHAP,path length (higher = more normal),trip_count,0.9334859233269953,1
+isolation_forest,anomaly score (path length),TreeSHAP,path length (higher = more normal),avg_trip_distance_miles,0.7172020466268826,2
+isolation_forest,anomaly score (path length),TreeSHAP,path length (higher = more normal),avg_fare_amount,0.5426853700137988,3
+isolation_forest,anomaly score (path length),TreeSHAP,path length (higher = more normal),avg_total_amount,0.41675540661813587,4
+isolation_forest,anomaly score (path length),TreeSHAP,path length (higher = more normal),unmatched_zone_count,0.0,5
+random_forest,fault probability,TreeSHAP,probability,trip_count,0.17398082466836123,1
+random_forest,fault probability,TreeSHAP,probability,unmatched_zone_count,0.10598350415646905,2
+random_forest,fault probability,TreeSHAP,probability,avg_trip_distance_miles,0.10243035765341199,3
+random_forest,fault probability,TreeSHAP,probability,avg_fare_amount,0.10013965397875418,4
+random_forest,fault probability,TreeSHAP,probability,avg_total_amount,0.02385761692156972,5
+unsup_ensemble,calibrated anomaly score,Permutation SHAP (flagged days),score,trip_count,0.18681301243460335,1
+unsup_ensemble,calibrated anomaly score,Permutation SHAP (flagged days),score,avg_fare_amount,0.11258600222226953,2
+unsup_ensemble,calibrated anomaly score,Permutation SHAP (flagged days),score,avg_trip_distance_miles,0.09714934447892953,3
+unsup_ensemble,calibrated anomaly score,Permutation SHAP (flagged days),score,unmatched_zone_count,0.086110872745708,4
+unsup_ensemble,calibrated anomaly score,Permutation SHAP (flagged days),score,avg_total_amount,0.05454325136904791,5
+xgboost,fault probability,TreeSHAP,log-odds,trip_count,1.9304648637771606,1
+xgboost,fault probability,TreeSHAP,log-odds,avg_trip_distance_miles,1.3747608661651611,2
+xgboost,fault probability,TreeSHAP,log-odds,avg_fare_amount,1.1883584260940552,3
+xgboost,fault probability,TreeSHAP,log-odds,unmatched_zone_count,0.8741303086280823,4
+xgboost,fault probability,TreeSHAP,log-odds,avg_total_amount,0.4414117634296417,5

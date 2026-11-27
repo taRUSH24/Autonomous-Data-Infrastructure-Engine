@@ -34,5 +34,15 @@ elementary-data
 xgboost
 matplotlib
 
+# --- hybrid ensemble + explainable AI (adie/detection/hybrid.py, adie/explain/) ---
+pyod          # ECOD + AutoEncoder
+shap
+lime
+joblib        # model artifact persistence
+scipy
+# PyOD's AutoEncoder needs torch. CPU-only wheel is enough (and ~5x smaller):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch
+
 # --- test ---
 pytest

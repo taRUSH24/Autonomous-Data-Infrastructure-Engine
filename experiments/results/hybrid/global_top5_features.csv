@@ -1,0 +1,6 @@
+rank,feature,mean_abs_shap
+1,trip_count,1.9304648637771606
+2,avg_trip_distance_miles,1.3747608661651611
+3,avg_fare_amount,1.1883584260940552
+4,unmatched_zone_count,0.8741303086280823
+5,avg_total_amount,0.4414117634296417

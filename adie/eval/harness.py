@@ -91,19 +91,21 @@ def build_fault_arrangement(
     name: str,
     json_path: str,
     days: list[str],
-    fault_day_assignments: dict[str, str],  # day -> fault_type
+    fault_day_assignments: dict[str, str | tuple[str, dict]],  # day -> fault_type, or (fault_type, kwargs)
     work_dir: str,
 ) -> Arrangement:
     """Loads real data for `days`, injects one fault per (day, fault_type) in
     fault_day_assignments -- each on a different day so ground truth per day
-    stays unambiguous -- then rebuilds once."""
+    stays unambiguous -- then rebuilds once. A value may be a
+    (fault_type, kwargs) tuple to pass severity parameters (e.g. fraction)."""
     db_path = str(Path(work_dir) / f"{name}.duckdb")
     _load_raw_trips(db_path, json_path, days)
 
     t0 = time.time()
     fault_by_day: dict[str, FaultSpec] = {}
-    for day, fault_type in fault_day_assignments.items():
-        spec = inject_fault(db_path, fault_type, day=day)
+    for day, assignment in fault_day_assignments.items():
+        fault_type, kwargs = (assignment, {}) if isinstance(assignment, str) else assignment
+        spec = inject_fault(db_path, fault_type, day=day, **kwargs)
         fault_by_day[day] = spec
     inject_seconds = time.time() - t0
 

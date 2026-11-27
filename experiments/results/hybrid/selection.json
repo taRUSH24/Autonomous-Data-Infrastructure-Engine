@@ -1,0 +1,11 @@
+{
+  "strategy": "hybrid_gated",
+  "default_detector": "hybrid",
+  "members": [
+    "isolation_forest",
+    "ecod",
+    "autoencoder"
+  ],
+  "combiner": "max",
+  "localization": "shap_supervised"
+}

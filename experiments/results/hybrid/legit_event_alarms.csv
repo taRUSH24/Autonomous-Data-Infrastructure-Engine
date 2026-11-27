@@ -1,0 +1,10 @@
+pickup_date,legit_event,autoencoder,ecod,hybrid_gated,hybrid_weighted,isolation_forest,isolation_forest_fit_once_legacy,isolation_forest_live,random_forest,statistical_zscore,unsup_ensemble,xgboost
+2023-09-04,Labor Day,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+2023-09-29,Flash-flood emergency,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.0,1.0,1.0,0.0
+2023-10-09,Columbus Day,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0
+2023-11-05,NYC Marathon,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+2023-11-23,Thanksgiving,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+2023-11-24,Black Friday,0.0,0.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0,1.0
+2023-12-24,Christmas Eve,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,1.0,1.0,1.0
+2023-12-25,Christmas Day,1.0,0.0,1.0,1.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0
+2023-12-31,New Year's Eve,0.0,0.0,0.0,1.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0

@@ -23,7 +23,7 @@ from adie.agent.state import RepairGraphState
 from adie.agent.tools import REPAIR_CATALOG_DESCRIPTION, deduplicate_raw_trips, reingest_partition
 from adie.contracts import Action, ActionKind, Severity
 from adie.control.incident_store import IncidentStore
-from adie.detection import completeness, isolation_forest
+from adie.detection import selector
 from adie.lineage.graph import LineageGraph
 from adie.rca.scorer import MECHANISM_BY_METRIC, rank_hypotheses
 
@@ -39,8 +39,27 @@ scoped to (read it out of the evidence/signal messages), which primitive
 you chose, and a one-sentence rationale citing the specific evidence that
 led you there. If the top hypothesis's mechanism is transformation_defect
 or unknown, you MUST choose no_op -- those require a human to change code,
-not a data patch.
+not a data patch. Likewise choose no_op if anomalies are flagged on (nearly)
+every day of the window: a systemic shift cannot be fixed by patching one
+partition and points to a transformation/code change.
 """
+
+SYSTEMIC_FRACTION = 0.8  # anomalous on >= 80% of the window's days -> systemic, escalate
+
+
+def _systemic_anomaly(duckdb_path: str, signals: list[dict]) -> tuple[bool, int, int]:
+    """True when row-level anomaly signals cover most days in fct_trips_daily
+    -- the signature of a code-level (transformation) defect, not a single bad
+    partition. Repair-policy guard only; RCA ranking is unchanged."""
+    import duckdb
+
+    con = duckdb.connect(duckdb_path, read_only=True)
+    try:
+        n_days = con.execute("select count(distinct pickup_date) from main.fct_trips_daily").fetchone()[0]
+    finally:
+        con.close()
+    flagged = {s["raw"].get("pickup_date") for s in signals if s.get("kind") == "anomaly"}
+    return (n_days >= 7 and len(flagged) >= SYSTEMIC_FRACTION * n_days), len(flagged), n_days
 
 
 class ProposedRepair:
@@ -76,19 +95,27 @@ def make_graph(
     store = IncidentStore(incident_db_path)
 
     def gather_evidence(state: RepairGraphState) -> RepairGraphState:
-        signals = isolation_forest.detect(state["duckdb_path"]) + completeness.detect(state["duckdb_path"])
+        # Detection: original IsolationForest or the hybrid ensemble (with
+        # SHAP/LIME explanations attached to each signal's raw payload),
+        # chosen by ADIE_DETECTOR -- plus the completeness rule check.
+        signals, detector_used = selector.detect_all(state["duckdb_path"])
+        # RCA stays lineage-based: explanations only supply the metric hint.
         lg = LineageGraph.from_manifest(state["manifest_path"])
         hyps = rank_hypotheses(lg, signals)
 
         store.record(state["incident_id"], "evidence_gathered", {
+            "detector": detector_used,
             "signal_count": len(signals),
             "top_hypotheses": [h.to_dict() for h in hyps[:3]],
+            "explanations": {s.raw.get("pickup_date"): s.raw["explanation"] for s in signals if s.raw.get("explanation")},
         })
 
         return {
             "signals": [s.to_dict() for s in signals],
+            "detector": detector_used,
             "hypotheses": [h.to_dict() for h in hyps],
-            "log": state.get("log", []) + [f"gathered {len(signals)} signal(s), {len(hyps)} hypothesis candidate(s)"],
+            "log": state.get("log", []) + [
+                f"[{detector_used}] gathered {len(signals)} signal(s), {len(hyps)} hypothesis candidate(s)"],
         }
 
     def propose_repair(state: RepairGraphState) -> RepairGraphState:
@@ -152,15 +179,20 @@ def make_graph(
             day = lead_signal["raw"].get("pickup_date", "unknown")
             metric = lead_signal["metric"]
 
-            if top["mechanism"] in ("transformation_defect", "unknown"):
+            systemic, n_flagged, n_days = _systemic_anomaly(state["duckdb_path"], signals)
+            if top["mechanism"] in ("transformation_defect", "unknown") or systemic:
                 primitive = "no_op"
-            elif metric == "trip_count":
+            elif metric == "trip_count" and lead_signal["raw"].get("direction") != "below":
+                # inflated volume -> dedupe. A *deficit* (hybrid detector
+                # reports direction="below", e.g. a truncated partition) is
+                # not fixable by dedupe, so it falls through to reingest.
                 primitive = "deduplicate_raw_trips"
             else:
                 primitive = "reingest_partition"
             rationale = (
                 f"[deterministic fallback, no ANTHROPIC_API_KEY set] top hypothesis={top['asset_key']} "
                 f"mechanism={top['mechanism']}, led by signal '{lead_signal['check_name']}' (metric={metric}) on {day}"
+                + (f"; anomalous on {n_flagged}/{n_days} days -> systemic, escalating" if systemic else "")
             )
 
         if primitive == "reingest_partition":

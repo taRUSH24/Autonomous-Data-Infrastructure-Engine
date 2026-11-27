@@ -29,12 +29,39 @@ TOP1_CASES = [
 ]
 
 
-@pytest.mark.parametrize("fault_name,ground_truth_asset", TOP1_CASES)
-def test_rca_ranks_ground_truth_asset_first(clean_duckdb, manifest_path, fault_name, ground_truth_asset):
+# Legacy per-batch IsolationForest on the REALISTIC demo window (uniform
+# full-day sample with genuine weekday/holiday variation, which replaced the
+# old constant-4,000-trips/day early-morning sample): contamination=0.1
+# forces ~10% of every 14-day batch to be flagged, and the 2023-01-01/02 New
+# Year holiday fills that budget with CRITICAL false alarms whose metric
+# votes outweigh the real fault in RCA. Kept (strict) to document the
+# measured weakness rather than deleted; see RESEARCH_REPORT.md section H4.
+LEGACY_IF_HOLIDAY_FP = pytest.mark.xfail(
+    strict=True, reason="legacy per-batch IsolationForest: New-Year holiday false alarms outvote the real fault")
+
+
+def _detect(detector: str, db: str):
+    from adie.detection import selector
+
+    return selector.detect_all(db, name=detector, explain=False)[0]
+
+
+@pytest.mark.parametrize("detector", [pytest.param("isolation_forest", marks=LEGACY_IF_HOLIDAY_FP), "hybrid"])
+@pytest.mark.parametrize("fault_name,ground_truth_asset", TOP1_CASES[1:])
+def test_rca_ranks_ground_truth_asset_first(clean_duckdb, manifest_path, fault_name, ground_truth_asset, detector):
+    _rca_top1(clean_duckdb, manifest_path, fault_name, ground_truth_asset, detector)
+
+
+@pytest.mark.parametrize("detector", ["isolation_forest", "hybrid"])
+def test_rca_ranks_missing_partition_source_first(clean_duckdb, manifest_path, detector):
+    _rca_top1(clean_duckdb, manifest_path, *TOP1_CASES[0], detector)
+
+
+def _rca_top1(clean_duckdb, manifest_path, fault_name, ground_truth_asset, detector):
     inject_fault(clean_duckdb, fault_name, day=FAULT_DAY)
     rebuild_dbt(clean_duckdb)
 
-    signals = isolation_forest.detect(clean_duckdb) + completeness.detect(clean_duckdb)
+    signals = _detect(detector, clean_duckdb)
     assert signals, f"{fault_name} produced no detectable signal"
 
     lg = LineageGraph.from_manifest(manifest_path)

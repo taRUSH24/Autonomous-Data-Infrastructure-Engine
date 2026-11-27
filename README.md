@@ -1,9 +1,10 @@
 # Autonomous Data Infrastructure Engine (ADIE)
 
 A working vertical slice of a self-healing data pipeline: real NYC taxi
-trip data flows through dbt + Dagster, two independent detectors (a dbt/
-Elementary-style rule check and an sklearn IsolationForest) watch the daily
-aggregate, a lineage-constrained root-cause scorer ranks which upstream
+trip data flows through dbt + Dagster, detectors (dbt/Elementary-style rule
+checks, a calendar-completeness rule, and a **hybrid explainable ML ensemble**
+-- with the original sklearn IsolationForest kept as baseline/fallback) watch
+the daily aggregate, a lineage-constrained root-cause scorer ranks which upstream
 asset is responsible, and a LangGraph agent proposes a repair that must
 pass sandbox verification -- and get human approval -- before it ever
 touches the real warehouse file.
@@ -11,10 +12,31 @@ touches the real warehouse file.
 ```
 NYC Taxi (Socrata) -> raw.trips (DuckDB)
     -> dbt: stg_trips, stg_zones -> trips_enriched -> fct_trips_daily
-        -> detection: dbt tests / Elementary + IsolationForest + completeness check
-            -> lineage-constrained RCA (adie/rca)
-                -> LangGraph agent: propose -> [human approval] -> sandbox verify -> apply
+        -> detection: dbt tests / Elementary + completeness check
+                      + hybrid ensemble (IF + ECOD + AutoEncoder || XGBoost, gated fusion)   [ADIE_DETECTOR=hybrid, default]
+                        or original per-batch IsolationForest                                   [ADIE_DETECTOR=isolation_forest]
+            -> SHAP / LIME explanation report (Dagster asset `anomaly_explanation_report`)
+                -> lineage-constrained RCA (adie/rca)          <- explanations supply only the metric hint
+                    -> LangGraph agent: propose -> [human approval] -> sandbox verify -> apply
 ```
+
+### Hybrid explainable anomaly detection (new)
+
+| | |
+|---|---|
+| Unsupervised branch | scikit-learn IsolationForest + PyOD ECOD + PyOD AutoEncoder, fit on clean history; scores calibrated against clean validation days, combined by max |
+| Supervised branch | XGBoost (primary) + RandomForest (comparison), trained on labelled injected faults |
+| Fusion | **gated**: alarm if P(fault) >= t_sup (known fault) OR calibrated anomaly score >= t_unsup (novelty gate, <= 2 % of clean validation days); every threshold fit on validation only |
+| Explanations | SHAP TreeExplainer (XGBoost/RF/IF), ECOD's exact per-feature scores, permutation SHAP + LIME for the ensemble score; top-5 per flagged day, waterfall PNGs |
+| Artifact | `models/hybrid_ensemble/hybrid_ensemble.joblib` + `metadata.json` -- loaded, never retrained per run |
+
+**Measured on held-out real data (Sep-Dec 2023)** -- full numbers and caveats in
+[`RESEARCH_REPORT.md` Part II](RESEARCH_REPORT.md#part-ii--hybrid-explainable-anomaly-detection-2026-11-27):
+hybrid F1 0.855 / FPR 0.103 / unseen-fault-type detection 0.739, vs the previously deployed per-batch
+IsolationForest 0.783 / 0.155 / 0.725 and XGBoost alone 0.878 / 0.086 / **0.218**. It is **not** better than a
+simple per-feature z-score baseline (0.838 / 0.078 / 0.768), and every model false-alarms on holidays because the
+five features carry no calendar information. SHAP/LIME name the feature that moved; they do not establish root
+cause -- that remains the lineage RCA's job.
 
 ## What's reused vs. built here
 
@@ -22,7 +44,8 @@ NYC Taxi (Socrata) -> raw.trips (DuckDB)
 |---|---|---|
 | Substrate | Dagster, dbt-core, dbt-duckdb, DuckDB | one asset to load the raw JSON feed |
 | Detection (rules) | dbt tests, `dbt-labs/dbt_utils`, `elementary-data/elementary` | schema/test YAML |
-| Detection (ML) | scikit-learn `IsolationForest`, `RandomForestClassifier`, `xgboost.XGBClassifier` | the daily-metrics adapter, per-feature z-score decomposition, and the offline fit/predict research harness in `adie/eval/` |
+| Detection (ML) | scikit-learn `IsolationForest`, `RandomForestClassifier`, `xgboost.XGBClassifier`; PyOD `ECOD`, `AutoEncoder` (torch) | the daily-metrics adapter, per-feature z-score decomposition, the offline fit/predict research harness in `adie/eval/`; score calibration + gated fusion + artifact I/O (`adie/detection/hybrid.py`), detector switch (`adie/detection/selector.py`) |
+| Explainability | `shap` (TreeExplainer, permutation), `lime` (LimeTabularExplainer), PyOD ECOD's per-feature scores | `adie/explain/attributions.py` -- picks the right interface per model, normalises to top-5 |
 | Lineage | dbt's own manifest, `networkx` | the manifest -> graph loader + cone queries |
 | RCA | PyRCA's graph-proximity *idea* (not the library -- see `adie/rca/scorer.py` docstring); `RandomForestClassifier` for the no-lineage ML baseline | the cone-constrained scorer + metric->mechanism table; `adie/eval/rca_baselines.py`'s two comparison baselines |
 | Agent | LangGraph, `langchain-anthropic` (`claude-opus-5`) | the graph wiring, repair catalog, sandbox verifier |
@@ -100,6 +123,20 @@ first Dagster materialization.)
 
 ## Run it
 
+**Choose the detector** (both always available; the Dagster UI shows both asset checks side by side):
+
+```bash
+export ADIE_DETECTOR=hybrid            # pretrained hybrid ensemble (default: models/hybrid_ensemble/metadata.json recommends it)
+export ADIE_DETECTOR=isolation_forest  # the original per-batch IsolationForest
+# ADIE_HYBRID_ARTIFACT=/path/to/hybrid_ensemble.joblib overrides the artifact location.
+# If the artifact is missing or fails to load, detection falls back to IsolationForest and logs it.
+```
+
+The demo warehouse now uses a **uniform full-day sample** (`scripts/fetch_hybrid_data.py` writes the
+2023-01-01..14 demo file; `scripts/fetch_data.py --sampling uniform` does the same standalone). The earlier
+first-4,000-trips-per-day sample (`--sampling first-n`, still the script default) only covered ~00:00-06:00 and
+made trip_count constant, which the pretrained hybrid models would treat as anomalous.
+
 **Dagster UI** (assets, check results, run history -- this *is* the
 monitoring dashboard, nothing custom was built):
 
@@ -162,7 +199,10 @@ with SqliteSaver.from_conn_string("data/warehouse/agent_checkpoints.sqlite") as 
 Approving runs the proposed repair against a **throwaway clone** of the
 warehouse first (`adie/agent/sandbox.py`); it only touches the real
 `adie.duckdb` file if that sandboxed run passes. Rejecting leaves
-production untouched.
+production untouched. Verification uses the configured detector and passes
+only if the repair **resolves at least one critical alarm and introduces no
+new one** (previously: zero critical alarms anywhere -- which on real data let
+one unrelated holiday alarm block every correct repair).
 
 ### Five fault types, one safety behavior worth noting
 
@@ -192,13 +232,37 @@ claims to be LLM-driven when it wasn't.
 .venv/bin/pytest -q
 ```
 
+Three tests are marked `xfail(strict=True)` on purpose: they run the **original per-batch
+IsolationForest** on the realistic demo window, where its forced 10 %-per-batch alarm quota is spent on the
+2023-01-01/02 New Year holiday, so it misses a fully broken join and its holiday alarms outvote the real fault
+in RCA. The same tests pass with the hybrid detector. They document a measured weakness; they are not skipped.
+
+`tests/test_hybrid.py` covers calibration, the FPR budgets, the novelty gate, ECOD batch-leakage, explanations,
+the detector fallback, the new fault types, and (with the real artifact) detection -> RCA -> agent.
+
 `tests/test_rca_eval.py` is the falsifiable one: it injects each fault type
 into a throwaway copy of the warehouse and asserts the RCA ranker actually
 finds the ground-truth asset, not just that it runs without error.
 
-## Research experiments
+## Hybrid ensemble: train, evaluate, explain
 
-The 36 pytest tests above check correctness. A separate, larger harness
+```bash
+.venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu   # PyOD AutoEncoder, CPU wheel
+.venv/bin/python scripts/fetch_hybrid_data.py        # 365 real days of 2023 (~5-10 min, resumable); also writes the demo file
+.venv/bin/python scripts/run_hybrid_experiments.py   # ~9 real dbt builds (first run only, cached) + E0-E4 + SHAP/LIME (~17 min)
+.venv/bin/python scripts/train_hybrid_ensemble.py    # writes models/hybrid_ensemble/ from the validation-only selection
+```
+
+Outputs in `experiments/results/hybrid/`: `model_comparison.csv` (every model, metrics + operational role),
+`known_vs_unseen.csv`, `lofo_results.csv`, `predictions.csv`, `shap_global_importance.csv`,
+`global_top5_features.csv`, `top5_features_per_prediction.csv`, `shap_vs_lime.csv`,
+`lime_representative_anomalies.json`, `legit_event_alarms.csv`, `natural_source_anomalies_test.csv`,
+`model_selection_validation.csv`, `summary.json`, and `figures/` (comparison graphs, SHAP beeswarm/bar,
+per-anomaly SHAP waterfalls and LIME plots). Two independent runs produce identical metrics.
+
+## Research experiments (Part I)
+
+The pytest suite above checks correctness. A separate, larger harness
 (`adie/eval/`) produced the numbers in [`RESEARCH_REPORT.md`](RESEARCH_REPORT.md)
 and [`EVALUATION_REPORT.md`](EVALUATION_REPORT.md): 39 independently-built
 real-data warehouses (28 held-out TRAIN days, 14 held-out TEST days, Feb vs.
@@ -245,19 +309,26 @@ adie/
   contracts.py         Signal -> Hypothesis -> Action -> Verification envelope; validate_day() SQL-injection guard
   lineage/graph.py      dbt manifest -> networkx graph, upstream/downstream cone queries
   detection/            IsolationForest adapter + calendar-completeness rule check
+                         hybrid.py (hybrid ensemble), selector.py (ADIE_DETECTOR switch + fallback)
+  explain/              SHAP / LIME / ECOD attributions for the hybrid detector
   rca/scorer.py         cone-constrained hypothesis ranking
   agent/                LangGraph graph, repair catalog, sandbox verifier
   control/              SQLite incident/audit log
   faults/inject.py      the 5 required fault types
   eval/                 research-experiment harness: arrangement builder, the 4 ML models,
                          the 2 RCA comparison baselines, Wilson-interval stats helper
-dagster_project/        Dagster Definitions: dbt assets, detection checks, the agent job
+dagster_project/        Dagster Definitions: dbt assets, detection checks (IF + hybrid + completeness),
+                         anomaly_explanation_report asset, the agent job
+models/hybrid_ensemble/  pretrained hybrid artifact (joblib, ~4 MB) + metadata.json
 dbt_project/             dbt models (staging/marts), seeds, Elementary + dbt_utils packages
 scripts/
   fetch_data.py          reproducible pull of real NYC TLC data from Socrata (14-day demo dataset)
   fetch_experiment_data.py  pulls the 28-train/14-test disjoint research dataset
   run_research_experiments.py  the Phase 1/2/4 experiment runner -- produces experiments/results/
   generate_figures.py   renders the PNGs in experiments/results/figures/ from that run's output
+  fetch_hybrid_data.py  365 days of 2023, uniform intra-day sample, chronological train/val/test + demo file
+  run_hybrid_experiments.py  hybrid ensemble research runner (E0-E4, LOFO, SHAP/LIME, figures)
+  train_hybrid_ensemble.py   builds the operational artifact in models/hybrid_ensemble/
 experiments/
   data/                 fetched research-dataset JSON, ~30MB (gitignored -- regenerate via fetch_experiment_data.py)
   results/               committed: rca_results.csv / repair_results.csv / summary.json / figures/*.png

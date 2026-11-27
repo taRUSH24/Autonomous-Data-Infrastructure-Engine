@@ -9,6 +9,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DBT_PROJECT_DIR = REPO_ROOT / "dbt_project"
 DUCKDB_PATH = Path(os.environ.get("ADIE_DUCKDB_PATH", REPO_ROOT / "data" / "warehouse" / "adie.duckdb"))
 RAW_JSON_PATH = REPO_ROOT / "data" / "raw" / "yellow_tripdata_2023-01_sample.json"
+# Detector switch (ADIE_DETECTOR=isolation_forest|hybrid) is read by
+# adie.detection.selector; explanation reports are written here:
+EXPLANATIONS_DIR = DUCKDB_PATH.parent / "explanations"
 
 os.environ.setdefault("ADIE_DUCKDB_PATH", str(DUCKDB_PATH))
 os.environ.setdefault("DBT_PROFILES_DIR", str(Path.home() / ".dbt"))

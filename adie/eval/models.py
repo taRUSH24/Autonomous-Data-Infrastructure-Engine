@@ -62,8 +62,28 @@ def fit_isolation_forest(train_df: pd.DataFrame, contamination: float = 0.1, ran
     return FittedModel("isolation_forest", predict)
 
 
+def build_random_forest(random_state: int = 7) -> RandomForestClassifier:
+    """Unfitted estimator with this project's hyper-parameters -- shared by
+    fit_random_forest() below and the hybrid ensemble (adie/detection/hybrid.py)."""
+    return RandomForestClassifier(n_estimators=200, random_state=random_state, class_weight="balanced")
+
+
+def build_xgboost(labels, random_state: int = 7) -> XGBClassifier:
+    labels = np.asarray(labels)
+    pos = max(int(labels.sum()), 1)
+    neg = max(int((labels == 0).sum()), 1)
+    return XGBClassifier(
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.1,
+        scale_pos_weight=neg / pos,
+        random_state=random_state,
+        eval_metric="logloss",
+    )
+
+
 def fit_random_forest(train_df: pd.DataFrame, labels: pd.Series, random_state: int = 7) -> FittedModel:
-    model = RandomForestClassifier(n_estimators=200, random_state=random_state, class_weight="balanced")
+    model = build_random_forest(random_state)
     model.fit(_X(train_df), labels.to_numpy())
 
     def predict(df: pd.DataFrame) -> np.ndarray:
@@ -73,16 +93,7 @@ def fit_random_forest(train_df: pd.DataFrame, labels: pd.Series, random_state: i
 
 
 def fit_xgboost(train_df: pd.DataFrame, labels: pd.Series, random_state: int = 7) -> FittedModel:
-    pos = max(int(labels.sum()), 1)
-    neg = max(int((labels == 0).sum()), 1)
-    model = XGBClassifier(
-        n_estimators=200,
-        max_depth=4,
-        learning_rate=0.1,
-        scale_pos_weight=neg / pos,
-        random_state=random_state,
-        eval_metric="logloss",
-    )
+    model = build_xgboost(labels.to_numpy(), random_state)
     model.fit(_X(train_df), labels.to_numpy())
 
     def predict(df: pd.DataFrame) -> np.ndarray:

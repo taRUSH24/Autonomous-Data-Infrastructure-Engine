@@ -116,6 +116,38 @@ python scripts/run_research_experiments.py       # ~12-15 min: builds ~39 indepe
 
 Outputs land in `experiments/results/`: `ml_results.csv`, `rca_results.csv`, `repair_results.csv`, `false_alarm_results.csv`, `summary.json`. `RESEARCH_REPORT.md` and `EVALUATION_REPORT.md` were written from this run's actual output — not fabricated.
 
+## 9. Hybrid explainable detection, end to end (verified 2026-11-27)
+
+Run on a scratch copy so the demo warehouse stays clean:
+
+```bash
+export PATH="$PWD/.venv/bin:$PATH" ADIE_DETECTOR=hybrid
+export DAGSTER_HOME=$(mktemp -d) ADIE_DUCKDB_PATH=/tmp/adie_demo.duckdb
+
+# 1. ingest -> dbt -> hybrid detection + SHAP/LIME report (+ every asset check)
+dagster asset materialize -m dagster_project.definitions --select "*"
+#    clean window: one WARN alarm, 2023-01-02 (New Year holiday) -- a known false-positive class, see report II.6
+
+# 2. break a day: 75% of 2023-01-09's rows go missing (truncated partition)
+python -c "from adie.faults.inject import apply; apply('$ADIE_DUCKDB_PATH','partial_partition',day='2023-01-09',fraction=0.75)"
+dagster asset materialize -m dagster_project.definitions --select "stg_trips,trips_enriched,fct_trips_daily,anomaly_explanation_report"
+cat "$(dirname $ADIE_DUCKDB_PATH)/explanations/latest.json"     # signals + top-5 SHAP/LIME + waterfall PNG paths
+
+# 3. RCA + agent (pauses for approval); the log prints each day's explanation and the incident id
+dagster job execute -m dagster_project.definitions -j investigate_and_repair_job
+```
+
+Observed: 2023-01-09 flagged by the supervised branch (SHAP: trip_count +5.55 log-odds), RCA top-1 `trips`
+(upstream_source_quality), proposal **re-ingest 2023-01-09** (not dedupe: the hybrid reports trip_count *below*
+normal). Resume with `Command(resume=True)` as in README.md (use `$(dirname $ADIE_DUCKDB_PATH)/agent_checkpoints.sqlite`):
+sandbox verification passed (critical alarm resolved, none introduced), repair applied, only the holiday WARN remains.
+
+Switch `ADIE_DETECTOR=isolation_forest` and repeat to compare against the original detector.
+
+## 10. Hybrid research results
+
+See README.md "Hybrid ensemble: train, evaluate, explain" for the three commands, and RESEARCH_REPORT.md Part II.
+
 ## If something doesn't start
 
 - `dbt build` errors about a missing profile → create `~/.dbt/profiles.yml` per README.md.

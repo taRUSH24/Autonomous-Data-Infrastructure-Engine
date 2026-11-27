@@ -64,6 +64,13 @@ def investigate_and_propose(context: OpExecutionContext) -> str:
         return incident_id
 
     action = interrupts[0].value["action"]
+    context.log.info(f"[{incident_id}] detector used: {result.get('detector')}")
+    for sig in result.get("signals", []):
+        expl = sig.get("raw", {}).get("explanation")
+        if expl:
+            top = ", ".join(f"{d['feature']} ({d['contribution']:+.3f})" for d in expl.get("primary_top5", [])[:3])
+            context.log.info(f"[{incident_id}] {sig['raw'].get('pickup_date')}: {expl.get('primary_explains')} "
+                             f"driven by {top}")
     context.log.info(
         f"[{incident_id}] PAUSED FOR HUMAN APPROVAL\n"
         f"  proposed action: {action['description']}\n"

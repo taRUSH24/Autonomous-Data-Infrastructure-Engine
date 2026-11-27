@@ -1,0 +1,967 @@
+[
+  {
+    "fault_type": "duplicate_records",
+    "pickup_date": "2023-09-09",
+    "severity": 0.5,
+    "features": {
+      "trip_count": 2904.0,
+      "avg_fare_amount": 20.205664600550982,
+      "avg_trip_distance_miles": 3.452885674931124,
+      "avg_total_amount": 28.5788808539945,
+      "unmatched_zone_count": 0.0
+    },
+    "p_fault_xgboost": 0.9771087765693665,
+    "ensemble_score": 1.029568322917534,
+    "shap_xgboost_top5": [
+      {
+        "feature": "trip_count",
+        "value": 2904.0,
+        "contribution": 5.176523685455322
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.5788808539945,
+        "contribution": 0.0017537716776132584
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.452885674931124,
+        "contribution": -1.0584862232208252
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.29636350274086
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 20.205664600550982,
+        "contribution": -0.14962367713451385
+      }
+    ],
+    "shap_ensemble_top5": [
+      {
+        "feature": "trip_count",
+        "value": 2904.0,
+        "contribution": 0.5808845862156883
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.5788808539945,
+        "contribution": -0.08336505580310076
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 20.205664600550982,
+        "contribution": 0.05762605649362055
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.452885674931124,
+        "contribution": -0.040257780309092356
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.0
+      }
+    ],
+    "ecod_top5": [
+      {
+        "feature": "trip_count",
+        "value": 2904.0,
+        "contribution": 5.111987788356543
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 20.205664600550982,
+        "contribution": 1.5284688499004333
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.5788808539945,
+        "contribution": 0.9072951689655772
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.452885674931124,
+        "contribution": 0.781254448070212
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.0
+      }
+    ],
+    "lime_xgboost_top5": [
+      {
+        "feature": "trip_count",
+        "value": 2904.0,
+        "contribution": 0.22424336770906508
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.28018823763731426
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 20.205664600550982,
+        "contribution": -0.20597242321546605
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.452885674931124,
+        "contribution": -0.14768875923229816
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.5788808539945,
+        "contribution": -0.04466983853679632
+      }
+    ],
+    "lime_xgboost_rules": [
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.28018823763731426
+      ],
+      [
+        "trip_count > 1975.00",
+        0.22424336770906508
+      ],
+      [
+        "avg_fare_amount > 19.95",
+        -0.20597242321546605
+      ],
+      [
+        "3.31 < avg_trip_distance_miles <= 3.46",
+        -0.14768875923229816
+      ],
+      [
+        "28.30 < avg_total_amount <= 29.16",
+        -0.04466983853679632
+      ]
+    ],
+    "lime_ensemble_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.13659305278947276
+      },
+      {
+        "feature": "trip_count",
+        "value": 2904.0,
+        "contribution": -0.12751763973868105
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.452885674931124,
+        "contribution": 0.08500530473948943
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.5788808539945,
+        "contribution": 0.0629071762107941
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 20.205664600550982,
+        "contribution": -0.017967735336233418
+      }
+    ],
+    "lime_ensemble_rules": [
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.13659305278947276
+      ],
+      [
+        "trip_count > 1975.00",
+        0.12751763973868105
+      ],
+      [
+        "3.31 < avg_trip_distance_miles <= 3.46",
+        -0.08500530473948943
+      ],
+      [
+        "28.30 < avg_total_amount <= 29.16",
+        -0.0629071762107941
+      ],
+      [
+        "avg_fare_amount > 19.95",
+        0.017967735336233418
+      ]
+    ]
+  },
+  {
+    "fault_type": "partial_partition",
+    "pickup_date": "2023-10-02",
+    "severity": 0.5,
+    "features": {
+      "trip_count": 866.0,
+      "avg_fare_amount": 19.111859122401853,
+      "avg_trip_distance_miles": 3.461651270207849,
+      "avg_total_amount": 28.332505773672057,
+      "unmatched_zone_count": 0.0
+    },
+    "p_fault_xgboost": 0.9940606951713562,
+    "ensemble_score": 1.0337048768997192,
+    "shap_xgboost_top5": [
+      {
+        "feature": "trip_count",
+        "value": 866.0,
+        "contribution": 5.4476847648620605
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.111859122401853,
+        "contribution": 0.06579076498746872
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.28417831659317017
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.332505773672057,
+        "contribution": -0.15617385506629944
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.461651270207849,
+        "contribution": -0.03296070545911789
+      }
+    ],
+    "shap_ensemble_top5": [
+      {
+        "feature": "trip_count",
+        "value": 866.0,
+        "contribution": 0.6340288637436018
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.332505773672057,
+        "contribution": -0.05113848117630965
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.461651270207849,
+        "contribution": -0.04360491318888182
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.111859122401853,
+        "contribution": -0.02026110879910928
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.0
+      }
+    ],
+    "ecod_top5": [
+      {
+        "feature": "trip_count",
+        "value": 866.0,
+        "contribution": 5.111987788356543
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.461651270207849,
+        "contribution": 0.8493079113152278
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.111859122401853,
+        "contribution": 0.7425399358895217
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.332505773672057,
+        "contribution": 0.7052685410922901
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.0
+      }
+    ],
+    "lime_xgboost_top5": [
+      {
+        "feature": "trip_count",
+        "value": 866.0,
+        "contribution": 0.21786885575962422
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.27534861294882523
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.111859122401853,
+        "contribution": -0.08690603439420139
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.332505773672057,
+        "contribution": -0.03278236984205891
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.461651270207849,
+        "contribution": -0.019407317342436028
+      }
+    ],
+    "lime_xgboost_rules": [
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.27534861294882523
+      ],
+      [
+        "trip_count <= 1598.00",
+        0.21786885575962422
+      ],
+      [
+        "19.01 < avg_fare_amount <= 19.95",
+        -0.08690603439420139
+      ],
+      [
+        "28.30 < avg_total_amount <= 29.16",
+        -0.03278236984205891
+      ],
+      [
+        "3.46 < avg_trip_distance_miles <= 3.85",
+        -0.019407317342436028
+      ]
+    ],
+    "lime_ensemble_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.13601409508397344
+      },
+      {
+        "feature": "trip_count",
+        "value": 866.0,
+        "contribution": -0.10699025041355664
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.111859122401853,
+        "contribution": 0.08828268662567695
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 28.332505773672057,
+        "contribution": 0.06102950429390496
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.461651270207849,
+        "contribution": 0.04616472998541557
+      }
+    ],
+    "lime_ensemble_rules": [
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.13601409508397344
+      ],
+      [
+        "trip_count <= 1598.00",
+        0.10699025041355664
+      ],
+      [
+        "19.01 < avg_fare_amount <= 19.95",
+        -0.08828268662567695
+      ],
+      [
+        "28.30 < avg_total_amount <= 29.16",
+        -0.06102950429390496
+      ],
+      [
+        "3.46 < avg_trip_distance_miles <= 3.85",
+        -0.04616472998541557
+      ]
+    ]
+  },
+  {
+    "fault_type": "join_error",
+    "pickup_date": "2023-10-07",
+    "severity": 0.1,
+    "features": {
+      "trip_count": 1871.0,
+      "avg_fare_amount": 18.234826296098362,
+      "avg_trip_distance_miles": 3.029257081774451,
+      "avg_total_amount": 26.347675040085473,
+      "unmatched_zone_count": 186.0
+    },
+    "p_fault_xgboost": 0.9766949415206909,
+    "ensemble_score": 1.0327868852459017,
+    "shap_xgboost_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 186.0,
+        "contribution": 5.457365036010742
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 18.234826296098362,
+        "contribution": 0.4145018458366394
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.029257081774451,
+        "contribution": -0.9104807376861572
+      },
+      {
+        "feature": "trip_count",
+        "value": 1871.0,
+        "contribution": -0.7057754993438721
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 26.347675040085473,
+        "contribution": -0.6001501679420471
+      }
+    ],
+    "shap_ensemble_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 186.0,
+        "contribution": 0.3497630069465919
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.029257081774451,
+        "contribution": 0.11728790617807472
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 18.234826296098362,
+        "contribution": 0.06435597965890749
+      },
+      {
+        "feature": "trip_count",
+        "value": 1871.0,
+        "contribution": -0.03204379789164796
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 26.347675040085473,
+        "contribution": 0.01874327403355816
+      }
+    ],
+    "ecod_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 186.0,
+        "contribution": 5.111987788356543
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.029257081774451,
+        "contribution": 3.3202283191284883
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 26.347675040085473,
+        "contribution": 1.9764935724273935
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 18.234826296098362,
+        "contribution": 1.4744016286301573
+      },
+      {
+        "feature": "trip_count",
+        "value": 1871.0,
+        "contribution": 0.8634925463071842
+      }
+    ],
+    "lime_xgboost_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 186.0,
+        "contribution": 0.29684766725215184
+      },
+      {
+        "feature": "trip_count",
+        "value": 1871.0,
+        "contribution": -0.1737266409256135
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.029257081774451,
+        "contribution": -0.11595835818085685
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 18.234826296098362,
+        "contribution": -0.04352656777784902
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 26.347675040085473,
+        "contribution": -0.0019943180306883253
+      }
+    ],
+    "lime_xgboost_rules": [
+      [
+        "unmatched_zone_count > 0.00",
+        0.29684766725215184
+      ],
+      [
+        "1824.00 < trip_count <= 1975.00",
+        -0.1737266409256135
+      ],
+      [
+        "avg_trip_distance_miles <= 3.31",
+        -0.11595835818085685
+      ],
+      [
+        "17.93 < avg_fare_amount <= 19.01",
+        -0.04352656777784902
+      ],
+      [
+        "avg_total_amount <= 26.91",
+        -0.0019943180306883253
+      ]
+    ],
+    "lime_ensemble_top5": [
+      {
+        "feature": "unmatched_zone_count",
+        "value": 186.0,
+        "contribution": -0.14343945964292895
+      },
+      {
+        "feature": "trip_count",
+        "value": 1871.0,
+        "contribution": 0.09808043748929172
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 18.234826296098362,
+        "contribution": 0.07320865719488698
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 26.347675040085473,
+        "contribution": -0.04323392097651495
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.029257081774451,
+        "contribution": 0.013876334147903376
+      }
+    ],
+    "lime_ensemble_rules": [
+      [
+        "unmatched_zone_count > 0.00",
+        0.14343945964292895
+      ],
+      [
+        "1824.00 < trip_count <= 1975.00",
+        -0.09808043748929172
+      ],
+      [
+        "17.93 < avg_fare_amount <= 19.01",
+        -0.07320865719488698
+      ],
+      [
+        "avg_total_amount <= 26.91",
+        0.04323392097651495
+      ],
+      [
+        "avg_trip_distance_miles <= 3.31",
+        -0.013876334147903376
+      ]
+    ]
+  },
+  {
+    "fault_type": "unit_change",
+    "pickup_date": "2023-09-06",
+    "severity": 0.5,
+    "features": {
+      "trip_count": 1917.0,
+      "avg_fare_amount": 19.85393844548779,
+      "avg_trip_distance_miles": 4.38841754074074,
+      "avg_total_amount": 29.249113197704787,
+      "unmatched_zone_count": 0.0
+    },
+    "p_fault_xgboost": 0.9969018697738647,
+    "ensemble_score": 1.0366593599319458,
+    "shap_xgboost_top5": [
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 4.38841754074074,
+        "contribution": 5.76309061050415
+      },
+      {
+        "feature": "trip_count",
+        "value": 1917.0,
+        "contribution": 0.7119592428207397
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.85393844548779,
+        "contribution": 0.018215080723166466
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 29.249113197704787,
+        "contribution": -0.49073565006256104
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.30874207615852356
+      }
+    ],
+    "shap_ensemble_top5": [
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 4.38841754074074,
+        "contribution": 0.49019530898051683
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 29.249113197704787,
+        "contribution": 0.013468799089066341
+      },
+      {
+        "feature": "trip_count",
+        "value": 1917.0,
+        "contribution": 0.011661880348142306
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.85393844548779,
+        "contribution": 0.006652855193802136
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.0
+      }
+    ],
+    "ecod_top5": [
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 4.38841754074074,
+        "contribution": 4.418840607796598
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 29.249113197704787,
+        "contribution": 1.5010698757123189
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.85393844548779,
+        "contribution": 1.1801621556322173
+      },
+      {
+        "feature": "trip_count",
+        "value": 1917.0,
+        "contribution": 1.0344503444508237
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.0
+      }
+    ],
+    "lime_xgboost_top5": [
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 4.38841754074074,
+        "contribution": 0.32564018308183085
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 29.249113197704787,
+        "contribution": 0.0404421941139695
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.2788979782072545
+      },
+      {
+        "feature": "trip_count",
+        "value": 1917.0,
+        "contribution": -0.2012220973317287
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.85393844548779,
+        "contribution": -0.14306670417183542
+      }
+    ],
+    "lime_xgboost_rules": [
+      [
+        "avg_trip_distance_miles > 3.85",
+        0.32564018308183085
+      ],
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.2788979782072545
+      ],
+      [
+        "1824.00 < trip_count <= 1975.00",
+        -0.2012220973317287
+      ],
+      [
+        "19.01 < avg_fare_amount <= 19.95",
+        -0.14306670417183542
+      ],
+      [
+        "avg_total_amount > 29.16",
+        0.0404421941139695
+      ]
+    ],
+    "lime_ensemble_top5": [
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 4.38841754074074,
+        "contribution": -0.15593509502217337
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.13619597419286306
+      },
+      {
+        "feature": "avg_fare_amount",
+        "value": 19.85393844548779,
+        "contribution": 0.1231000391827706
+      },
+      {
+        "feature": "trip_count",
+        "value": 1917.0,
+        "contribution": 0.11370837566325841
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 29.249113197704787,
+        "contribution": -0.040773090323677555
+      }
+    ],
+    "lime_ensemble_rules": [
+      [
+        "avg_trip_distance_miles > 3.85",
+        0.15593509502217337
+      ],
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.13619597419286306
+      ],
+      [
+        "19.01 < avg_fare_amount <= 19.95",
+        -0.1231000391827706
+      ],
+      [
+        "1824.00 < trip_count <= 1975.00",
+        -0.11370837566325841
+      ],
+      [
+        "avg_total_amount > 29.16",
+        0.040773090323677555
+      ]
+    ]
+  },
+  {
+    "fault_type": "schema_change",
+    "pickup_date": "2023-09-02",
+    "severity": 1.0,
+    "features": {
+      "trip_count": 1313.0,
+      "avg_fare_amount": 0.0,
+      "avg_trip_distance_miles": 3.7344554455445538,
+      "avg_total_amount": 27.5172734196496,
+      "unmatched_zone_count": 0.0
+    },
+    "p_fault_xgboost": 0.9965793490409851,
+    "ensemble_score": 1.0363240242004395,
+    "shap_xgboost_top5": [
+      {
+        "feature": "avg_fare_amount",
+        "value": 0.0,
+        "contribution": 4.5091962814331055
+      },
+      {
+        "feature": "trip_count",
+        "value": 1313.0,
+        "contribution": 0.9255629777908325
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.7344554455445538,
+        "contribution": 0.4609239399433136
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.21481917798519135
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 27.5172734196496,
+        "contribution": -0.08641403913497925
+      }
+    ],
+    "shap_ensemble_top5": [
+      {
+        "feature": "avg_fare_amount",
+        "value": 0.0,
+        "contribution": 0.30622513872804125
+      },
+      {
+        "feature": "trip_count",
+        "value": 1313.0,
+        "contribution": 0.11352742455626923
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.7344554455445538,
+        "contribution": 0.09098302376938307
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 27.5172734196496,
+        "contribution": 0.010907920826327688
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.0
+      }
+    ],
+    "ecod_top5": [
+      {
+        "feature": "avg_fare_amount",
+        "value": 0.0,
+        "contribution": 5.111987788356543
+      },
+      {
+        "feature": "trip_count",
+        "value": 1313.0,
+        "contribution": 4.418840607796598
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.7344554455445538,
+        "contribution": 1.5856272637403819
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 27.5172734196496,
+        "contribution": 1.086636097621394
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.0
+      }
+    ],
+    "lime_xgboost_top5": [
+      {
+        "feature": "avg_fare_amount",
+        "value": 0.0,
+        "contribution": 0.3025026543702167
+      },
+      {
+        "feature": "trip_count",
+        "value": 1313.0,
+        "contribution": 0.19562827330068758
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 27.5172734196496,
+        "contribution": 0.0015351939859592188
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": -0.24819715438009227
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.7344554455445538,
+        "contribution": -0.011020979090542298
+      }
+    ],
+    "lime_xgboost_rules": [
+      [
+        "avg_fare_amount <= 17.93",
+        0.3025026543702167
+      ],
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.24819715438009227
+      ],
+      [
+        "trip_count <= 1598.00",
+        0.19562827330068758
+      ],
+      [
+        "3.46 < avg_trip_distance_miles <= 3.85",
+        -0.011020979090542298
+      ],
+      [
+        "26.91 < avg_total_amount <= 28.30",
+        0.0015351939859592188
+      ]
+    ],
+    "lime_ensemble_top5": [
+      {
+        "feature": "avg_fare_amount",
+        "value": 0.0,
+        "contribution": -0.14583500566822374
+      },
+      {
+        "feature": "unmatched_zone_count",
+        "value": 0.0,
+        "contribution": 0.12406952998954582
+      },
+      {
+        "feature": "trip_count",
+        "value": 1313.0,
+        "contribution": -0.10300863331439061
+      },
+      {
+        "feature": "avg_trip_distance_miles",
+        "value": 3.7344554455445538,
+        "contribution": 0.02961465095224475
+      },
+      {
+        "feature": "avg_total_amount",
+        "value": 27.5172734196496,
+        "contribution": 0.01832031742971827
+      }
+    ],
+    "lime_ensemble_rules": [
+      [
+        "avg_fare_amount <= 17.93",
+        0.14583500566822374
+      ],
+      [
+        "unmatched_zone_count <= 0.00",
+        -0.12406952998954582
+      ],
+      [
+        "trip_count <= 1598.00",
+        0.10300863331439061
+      ],
+      [
+        "3.46 < avg_trip_distance_miles <= 3.85",
+        -0.02961465095224475
+      ],
+      [
+        "26.91 < avg_total_amount <= 28.30",
+        -0.01832031742971827
+      ]
+    ]
+  }
+]

@@ -11,6 +11,7 @@ class RepairGraphState(TypedDict, total=False):
     manifest_path: str
 
     signals: list[dict]
+    detector: str  # which row-level detector produced `signals` (see adie/detection/selector.py)
     hypotheses: list[dict]
     proposed_action: dict | None
     llm_used: bool
